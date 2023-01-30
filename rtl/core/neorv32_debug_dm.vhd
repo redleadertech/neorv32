@@ -2,7 +2,7 @@
 -- # << NEORV32 - RISC-V-Compatible Debug Module (DM) >>                                           #
 -- # ********************************************************************************************* #
 -- # Compatible to the "Minimal RISC-V External Debug Spec. Version 0.13.2"                        #
--- # -> "Execution-based" debugging scheme                                                         # 
+-- # -> "Execution-based" debugging scheme                                                         #
 -- # ********************************************************************************************* #
 -- # Key features:                                                                                 #
 -- # * register access commands only                                                               #
@@ -133,6 +133,9 @@ architecture neorv32_debug_dm_rtl of neorv32_debug_dm is
   end record;
   signal dm_ctrl : dm_ctrl_t;
 
+  attribute mark_debug : string;
+  attribute mark_debug of dm_ctrl: signal is "true";
+
   -- debug module DMI registers / access --
   type progbuf_t is array (0 to 1) of std_ulogic_vector(31 downto 0);
   type dm_reg_t is record
@@ -154,9 +157,13 @@ architecture neorv32_debug_dm_rtl of neorv32_debug_dm is
   end record;
   signal dm_reg : dm_reg_t;
 
+  attribute mark_debug of dm_reg_t: signal is "true";
+
   -- cpu program buffer --
   type cpu_progbuf_t is array (0 to 4) of std_ulogic_vector(31 downto 0);
   signal cpu_progbuf : cpu_progbuf_t;
+
+  attribute mark_debug of cpu_progbuf: signal is "true";
 
   -- **********************************************************
   -- CPU Bus Interface
@@ -227,13 +234,21 @@ architecture neorv32_debug_dm_rtl of neorv32_debug_dm is
   signal wren   : std_ulogic;
   signal maddr  : std_ulogic_vector(01 downto 0);
 
+  attribute mark_debug of acc_en: signal is "true";
+  attribute mark_debug of rden: signal is "true";
+  attribute mark_debug of wren: signal is "true";
+  attribute mark_debug of maddr: signal is "true";
+
   -- data buffer --
   signal data_buf : std_ulogic_vector(31 downto 0);
+
+  attribute mark_debug of data_buf: signal is "true";
 
   -- program buffer access --
   type prog_buf_t is array (0 to 3) of std_ulogic_vector(31 downto 0);
   signal prog_buf : prog_buf_t;
 
+  attribute mark_debug of prog_buf: signal is "true";
 begin
 
   -- Debug Module Command Controller --------------------------------------------------------

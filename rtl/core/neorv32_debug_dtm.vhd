@@ -92,6 +92,9 @@ architecture neorv32_debug_dtm_rtl of neorv32_debug_dtm is
   end record;
   signal tap_sync : tap_sync_t;
 
+  attribute mark_debug : string;
+  attribute mark_debug of tap_sync: signal is "true";
+
   -- tap controller - fsm --
   type tap_ctrl_state_t is (LOGIC_RESET, DR_SCAN, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE,
                                RUN_IDLE, IR_SCAN, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE);
@@ -100,6 +103,7 @@ architecture neorv32_debug_dtm_rtl of neorv32_debug_dtm is
     state_prev : tap_ctrl_state_t;
   end record;
   signal tap_ctrl : tap_ctrl_t;
+  attribute mark_debug of tap_ctrl: signal is "true";
 
   -- tap registers --
   type tap_reg_t is record
@@ -110,6 +114,7 @@ architecture neorv32_debug_dtm_rtl of neorv32_debug_dtm is
     dmi,   dmi_nxt   : std_ulogic_vector((7+32+2)-1 downto 0); -- 7-bit address + 32-bit data + 2-bit operation
   end record;
   signal tap_reg : tap_reg_t;
+  attribute mark_debug of tap_reg: signal is "true";
 
   -- debug module interface --
   type dmi_ctrl_state_t is (DMI_IDLE, DMI_READ_WAIT, DMI_READ, DMI_READ_BUSY,
@@ -127,6 +132,7 @@ architecture neorv32_debug_dtm_rtl of neorv32_debug_dtm is
   end record;
   signal dmi_ctrl : dmi_ctrl_t;
 
+  attribute mark_debug of dmi_ctrl: signal is "true";
 begin
 
   -- JTAG Signal Synchronizer ---------------------------------------------------------------
