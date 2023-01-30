@@ -157,7 +157,7 @@ architecture neorv32_debug_dm_rtl of neorv32_debug_dm is
   end record;
   signal dm_reg : dm_reg_t;
 
-  attribute mark_debug of dm_reg_t: signal is "true";
+  attribute mark_debug of dm_reg: signal is "true";
 
   -- cpu program buffer --
   type cpu_progbuf_t is array (0 to 4) of std_ulogic_vector(31 downto 0);
