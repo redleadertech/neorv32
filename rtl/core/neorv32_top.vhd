@@ -358,7 +358,9 @@ architecture neorv32_top_rtl of neorv32_top is
   signal resp_bus : resp_bus_t := (others => resp_bus_entry_terminate_c);
 
   -- IRQs --
+  attribute mark_debug : string;
   signal fast_irq      : std_ulogic_vector(15 downto 0);
+  attribute mark_debug of fast_irq: signal is "true";
   signal mtime_irq     : std_ulogic;
   signal wdt_irq       : std_ulogic;
   signal uart0_rxd_irq : std_ulogic;
@@ -372,6 +374,7 @@ architecture neorv32_top_rtl of neorv32_top is
   signal slink_tx_irq  : std_ulogic;
   signal slink_rx_irq  : std_ulogic;
   signal xirq_irq      : std_ulogic;
+  attribute mark_debug of xirq_irq: signal is "true";
   signal gptmr_irq     : std_ulogic;
 
   -- tri-state drivers --
@@ -407,7 +410,7 @@ begin
   cond_sel_string_f(boolean(XIRQ_NUM_CH > 0), "XIRQ ", "") &
   cond_sel_string_f(IO_GPTMR_EN, "GPTMR ", "") &
   cond_sel_string_f(IO_XIP_EN, "XIP ", "") &
-  "" 
+  ""
   severity note;
 
 

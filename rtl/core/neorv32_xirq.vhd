@@ -75,31 +75,47 @@ architecture neorv32_xirq_rtl of neorv32_xirq is
   constant hi_abb_c : natural := index_size_f(io_size_c)-1; -- high address boundary bit
   constant lo_abb_c : natural := index_size_f(xirq_size_c); -- low address boundary bit
 
+  attribute mark_debug : string;
+
   -- access control --
   signal acc_en : std_ulogic; -- module access enable
+  attribute mark_debug of acc_en: signal is "true";
   signal addr   : std_ulogic_vector(31 downto 0); -- access address
+  attribute mark_debug of addr: signal is "true";
   signal wren   : std_ulogic; -- word write enable
+  attribute mark_debug of wren: signal is "true";
   signal rden   : std_ulogic; -- read enable
+  attribute mark_debug of rden: signal is "true";
 
   -- control registers --
   signal irq_enable  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0); -- r/w: interrupt enable
+  attribute mark_debug of irq_enable: signal is "true";
   signal clr_pending : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0); -- r/w: clear pending IRQs
+  attribute mark_debug of clr_pending: signal is "true";
   signal irq_src     : std_ulogic_vector(4 downto 0); -- r/w: source IRQ, ACK on any write
+  attribute mark_debug of irq_src: signal is "true";
 
   -- interrupt trigger --
   signal irq_sync  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+  attribute mark_debug of irq_sync: signal is "true";
   signal irq_sync2 : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+  attribute mark_debug of irq_sync2: signal is "true";
   signal irq_trig  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+  attribute mark_debug of irq_trig: signal is "true";
 
   -- interrupt buffer --
   signal irq_buf  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+  attribute mark_debug of irq_buf: signal is "true";
   signal irq_fire : std_ulogic;
+  attribute mark_debug of irq_fire: signal is "true";
 
   -- interrupt source --
   signal irq_src_nxt : std_ulogic_vector(4 downto 0);
+  attribute mark_debug of irq_src_nxt: signal is "true";
 
   -- arbiter --
   signal irq_run : std_ulogic;
+  attribute mark_debug of irq_run: signal is "true";
 
 begin
 
