@@ -174,7 +174,7 @@ begin
 
   -- Bus Arbiter -----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  bus_arbiter: process(, clk_i)
+  bus_arbiter: process(clk_i)
   begin
     if rising_edge(clk_i) then
       if (rstn_i = '0') then

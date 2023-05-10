@@ -919,7 +919,7 @@ begin
 
 
   -- result class --
-  adder_subtractor_class_core: process(, clk_i)
+  adder_subtractor_class_core: process(clk_i)
     variable a_pos_norm_v, a_neg_norm_v, b_pos_norm_v, b_neg_norm_v : std_ulogic;
     variable a_pos_subn_v, a_neg_subn_v, b_pos_subn_v, b_neg_subn_v : std_ulogic;
     variable a_pos_zero_v, a_neg_zero_v, b_pos_zero_v, b_neg_zero_v : std_ulogic;
