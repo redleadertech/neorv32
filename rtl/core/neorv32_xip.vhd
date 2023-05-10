@@ -187,79 +187,81 @@ begin
 
   -- Control Read/Write Access --------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  ctrl_rw_access : process(rstn_i, clk_i)
+  ctrl_rw_access : process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl        <= (others => '0');
-      spi_data_lo <= (others => '-');
-      spi_data_hi <= (others => '-');
-      spi_trigger <= '-';
-      --
-      ct_data_o   <= (others => '-');
-      ct_ack_o    <= '-';
-    elsif rising_edge(clk_i) then
-      -- access acknowledge --
-      ct_ack_o <= ct_wren or ct_rden;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl        <= (others => '0');
+        spi_data_lo <= (others => '-');
+        spi_data_hi <= (others => '-');
+        spi_trigger <= '-';
+        --
+        ct_data_o   <= (others => '-');
+        ct_ack_o    <= '-';
+      else
+        -- access acknowledge --
+        ct_ack_o <= ct_wren or ct_rden;
 
-      -- defaults --
-      spi_trigger <= '0';
+        -- defaults --
+        spi_trigger <= '0';
 
-      -- write access --
-      if (ct_wren = '1') then -- only full-word writes!
+        -- write access --
+        if (ct_wren = '1') then -- only full-word writes!
 
-        -- control register --
-        if (ct_addr = xip_ctrl_addr_c) then
-          ctrl(ctrl_enable_c)                                <= ct_data_i(ctrl_enable_c);
-          ctrl(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c)     <= ct_data_i(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c);
-          ctrl(ctrl_spi_cpol_c)                              <= ct_data_i(ctrl_spi_cpol_c);
-          ctrl(ctrl_spi_cpha_c)                              <= ct_data_i(ctrl_spi_cpha_c);
-          ctrl(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c) <= ct_data_i(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c);
-          ctrl(ctrl_xip_enable_c)                            <= ct_data_i(ctrl_xip_enable_c);
-          ctrl(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c) <= ct_data_i(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c);
-          ctrl(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c)         <= ct_data_i(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c);
-          ctrl(ctrl_page3_c downto ctrl_page0_c)             <= ct_data_i(ctrl_page3_c downto ctrl_page0_c);
-          ctrl(ctrl_spi_csen_c)                              <= ct_data_i(ctrl_spi_csen_c);
-          ctrl(ctrl_highspeed_c)                             <= ct_data_i(ctrl_highspeed_c);
-          ctrl(ctrl_burst_en_c)                              <= ct_data_i(ctrl_burst_en_c);
+          -- control register --
+          if (ct_addr = xip_ctrl_addr_c) then
+            ctrl(ctrl_enable_c)                                <= ct_data_i(ctrl_enable_c);
+            ctrl(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c)     <= ct_data_i(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c);
+            ctrl(ctrl_spi_cpol_c)                              <= ct_data_i(ctrl_spi_cpol_c);
+            ctrl(ctrl_spi_cpha_c)                              <= ct_data_i(ctrl_spi_cpha_c);
+            ctrl(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c) <= ct_data_i(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c);
+            ctrl(ctrl_xip_enable_c)                            <= ct_data_i(ctrl_xip_enable_c);
+            ctrl(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c) <= ct_data_i(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c);
+            ctrl(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c)         <= ct_data_i(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c);
+            ctrl(ctrl_page3_c downto ctrl_page0_c)             <= ct_data_i(ctrl_page3_c downto ctrl_page0_c);
+            ctrl(ctrl_spi_csen_c)                              <= ct_data_i(ctrl_spi_csen_c);
+            ctrl(ctrl_highspeed_c)                             <= ct_data_i(ctrl_highspeed_c);
+            ctrl(ctrl_burst_en_c)                              <= ct_data_i(ctrl_burst_en_c);
+          end if;
+
+          -- SPI direct data access register lo --
+          if (ct_addr = xip_data_lo_addr_c) then
+            spi_data_lo <= ct_data_i;
+          end if;
+
+          -- SPI direct data access register hi --
+          if (ct_addr = xip_data_hi_addr_c) then
+            spi_data_hi <= ct_data_i;
+            spi_trigger <= '1'; -- trigger direct SPI transaction
+          end if;
         end if;
 
-        -- SPI direct data access register lo --
-        if (ct_addr = xip_data_lo_addr_c) then
-          spi_data_lo <= ct_data_i;
+        -- read access --
+        ct_data_o <= (others => '0');
+        if (ct_rden = '1') then
+          case ct_addr(3 downto 2) is
+            when "00" => -- 'xip_ctrl_addr_c' - control register
+              ct_data_o(ctrl_enable_c)                                <= ctrl(ctrl_enable_c);
+              ct_data_o(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c)     <= ctrl(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c);
+              ct_data_o(ctrl_spi_cpol_c)                              <= ctrl(ctrl_spi_cpol_c);
+              ct_data_o(ctrl_spi_cpha_c)                              <= ctrl(ctrl_spi_cpha_c);
+              ct_data_o(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c) <= ctrl(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c);
+              ct_data_o(ctrl_xip_enable_c)                            <= ctrl(ctrl_xip_enable_c);
+              ct_data_o(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c) <= ctrl(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c);
+              ct_data_o(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c)         <= ctrl(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c);
+              ct_data_o(ctrl_page3_c downto ctrl_page0_c)             <= ctrl(ctrl_page3_c downto ctrl_page0_c);
+              ct_data_o(ctrl_spi_csen_c)                              <= ctrl(ctrl_spi_csen_c);
+              ct_data_o(ctrl_highspeed_c)                             <= ctrl(ctrl_highspeed_c);
+              ct_data_o(ctrl_burst_en_c)                              <= ctrl(ctrl_burst_en_c);
+              --
+              ct_data_o(ctrl_phy_busy_c) <= phy_if.busy;
+              ct_data_o(ctrl_xip_busy_c) <= arbiter.busy;
+            when "10" => -- 'xip_data_lo_addr_c' - SPI direct data access register lo
+              ct_data_o <= phy_if.rdata;
+            when others => -- unavailable (not implemented or write-only)
+              ct_data_o <= (others => '0');
+          end case;
         end if;
-
-        -- SPI direct data access register hi --
-        if (ct_addr = xip_data_hi_addr_c) then
-          spi_data_hi <= ct_data_i;
-          spi_trigger <= '1'; -- trigger direct SPI transaction
-        end if;
-      end if;
-
-      -- read access --
-      ct_data_o <= (others => '0');
-      if (ct_rden = '1') then
-        case ct_addr(3 downto 2) is
-          when "00" => -- 'xip_ctrl_addr_c' - control register
-            ct_data_o(ctrl_enable_c)                                <= ctrl(ctrl_enable_c);
-            ct_data_o(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c)     <= ctrl(ctrl_spi_prsc2_c downto ctrl_spi_prsc0_c);
-            ct_data_o(ctrl_spi_cpol_c)                              <= ctrl(ctrl_spi_cpol_c);
-            ct_data_o(ctrl_spi_cpha_c)                              <= ctrl(ctrl_spi_cpha_c);
-            ct_data_o(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c) <= ctrl(ctrl_spi_nbytes3_c downto ctrl_spi_nbytes0_c);
-            ct_data_o(ctrl_xip_enable_c)                            <= ctrl(ctrl_xip_enable_c);
-            ct_data_o(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c) <= ctrl(ctrl_xip_abytes1_c downto ctrl_xip_abytes0_c);
-            ct_data_o(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c)         <= ctrl(ctrl_rd_cmd7_c downto ctrl_rd_cmd0_c);
-            ct_data_o(ctrl_page3_c downto ctrl_page0_c)             <= ctrl(ctrl_page3_c downto ctrl_page0_c);
-            ct_data_o(ctrl_spi_csen_c)                              <= ctrl(ctrl_spi_csen_c);
-            ct_data_o(ctrl_highspeed_c)                             <= ctrl(ctrl_highspeed_c);
-            ct_data_o(ctrl_burst_en_c)                              <= ctrl(ctrl_burst_en_c);
-            --
-            ct_data_o(ctrl_phy_busy_c) <= phy_if.busy;
-            ct_data_o(ctrl_xip_busy_c) <= arbiter.busy;
-          when "10" => -- 'xip_data_lo_addr_c' - SPI direct data access register lo
-            ct_data_o <= phy_if.rdata;
-          when others => -- unavailable (not implemented or write-only)
-            ct_data_o <= (others => '0');
-        end case;
       end if;
     end if;
   end process ctrl_rw_access;

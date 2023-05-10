@@ -140,35 +140,37 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      fifo_clr <= '-';
-      enable   <= '0';
-      ack_o    <= '-';
-      data_o   <= (others => '-');
-    elsif rising_edge(clk_i) then
-      -- host bus acknowledge --
-      ack_o <= wren or rden;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        fifo_clr <= '-';
+        enable   <= '0';
+        ack_o    <= '-';
+        data_o   <= (others => '-');
+      else
+        -- host bus acknowledge --
+        ack_o <= wren or rden;
 
-      -- defaults --
-      fifo_clr <= '0';
+        -- defaults --
+        fifo_clr <= '0';
 
-      -- write access --
-      if (wren = '1') then
-        enable   <= data_i(ctrl_en_c);
-        fifo_clr <= data_i(ctrl_fifo_clr_c);
-      end if;
-
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        if (fifo.avail = '1') then -- make sure the same RND data byte cannot be read twice
-          data_o(ctrl_data_msb_c downto ctrl_data_lsb_c) <= fifo.rdata;
+        -- write access --
+        if (wren = '1') then
+          enable   <= data_i(ctrl_en_c);
+          fifo_clr <= data_i(ctrl_fifo_clr_c);
         end if;
-        data_o(ctrl_sim_mode_c) <= bool_to_ulogic_f(sim_mode_c);
-        data_o(ctrl_en_c)       <= enable;
-        data_o(ctrl_valid_c)    <= fifo.avail;
+
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          if (fifo.avail = '1') then -- make sure the same RND data byte cannot be read twice
+            data_o(ctrl_data_msb_c downto ctrl_data_lsb_c) <= fifo.rdata;
+          end if;
+          data_o(ctrl_sim_mode_c) <= bool_to_ulogic_f(sim_mode_c);
+          data_o(ctrl_en_c)       <= enable;
+          data_o(ctrl_valid_c)    <= fifo.avail;
+        end if;
       end if;
     end if;
   end process rw_access;

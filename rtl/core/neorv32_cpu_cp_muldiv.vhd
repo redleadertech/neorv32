@@ -118,64 +118,66 @@ begin
 
   -- Co-Processor Controller ----------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  coprocessor_ctrl: process(rstn_i, clk_i)
+  coprocessor_ctrl: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl.state    <= S_IDLE;
-      ctrl.rs2_abs  <= (others => def_rst_val_c);
-      ctrl.cnt      <= (others => def_rst_val_c);
-      ctrl.cp_op_ff <= (others => def_rst_val_c);
-      ctrl.out_en   <= '0';
-      div.sign_mod  <= def_rst_val_c;
-    elsif rising_edge(clk_i) then
-      -- defaults --
-      ctrl.out_en <= '0';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl.state    <= S_IDLE;
+        ctrl.rs2_abs  <= (others => def_rst_val_c);
+        ctrl.cnt      <= (others => def_rst_val_c);
+        ctrl.cp_op_ff <= (others => def_rst_val_c);
+        ctrl.out_en   <= '0';
+        div.sign_mod  <= def_rst_val_c;
+      else
+        -- defaults --
+        ctrl.out_en <= '0';
 
-      -- FSM --
-      case ctrl.state is
+        -- FSM --
+        case ctrl.state is
 
-        when S_IDLE => -- wait for start signal
-          -- arbitration
-          ctrl.cp_op_ff <= ctrl.cp_op;
-          ctrl.cnt      <= "11110"; -- iterative cycle counter
-          if (start_i = '1') then -- trigger new operation
-            if (DIVISION_EN = true) then
-              -- DIV: check relevant input signs for result sign compensation --
-              if (ctrl.cp_op(1 downto 0) = cp_op_div_c(1 downto 0)) then -- signed div operation
-                div.sign_mod <= (rs1_i(rs1_i'left) xor rs2_i(rs2_i'left)) and or_reduce_f(rs2_i); -- different signs AND divisor not zero
-              elsif (ctrl.cp_op(1 downto 0) = cp_op_rem_c(1 downto 0)) then -- signed rem operation
-                div.sign_mod <= rs1_i(rs1_i'left);
-              else
-                div.sign_mod <= '0';
+          when S_IDLE => -- wait for start signal
+            -- arbitration
+            ctrl.cp_op_ff <= ctrl.cp_op;
+            ctrl.cnt      <= "11110"; -- iterative cycle counter
+            if (start_i = '1') then -- trigger new operation
+              if (DIVISION_EN = true) then
+                -- DIV: check relevant input signs for result sign compensation --
+                if (ctrl.cp_op(1 downto 0) = cp_op_div_c(1 downto 0)) then -- signed div operation
+                  div.sign_mod <= (rs1_i(rs1_i'left) xor rs2_i(rs2_i'left)) and or_reduce_f(rs2_i); -- different signs AND divisor not zero
+                elsif (ctrl.cp_op(1 downto 0) = cp_op_rem_c(1 downto 0)) then -- signed rem operation
+                  div.sign_mod <= rs1_i(rs1_i'left);
+                else
+                  div.sign_mod <= '0';
+                end if;
+                -- DIV: abs(rs2) --
+                if ((rs2_i(rs2_i'left) and ctrl.rs2_is_signed) = '1') then -- signed division?
+                  ctrl.rs2_abs <= std_ulogic_vector(0 - unsigned(rs2_i)); -- make positive
+                else
+                  ctrl.rs2_abs <= rs2_i;
+                end if;
               end if;
-              -- DIV: abs(rs2) --
-              if ((rs2_i(rs2_i'left) and ctrl.rs2_is_signed) = '1') then -- signed division?
-                ctrl.rs2_abs <= std_ulogic_vector(0 - unsigned(rs2_i)); -- make positive
-              else
-                ctrl.rs2_abs <= rs2_i;
+              -- is fast multiplication?--
+              if (ctrl.op = '0') and (FAST_MUL_EN = true) then
+                ctrl.state <= S_DONE;
+              else -- serial division or serial multiplication
+                ctrl.state <= S_BUSY;
               end if;
             end if;
-            -- is fast multiplication?--
-            if (ctrl.op = '0') and (FAST_MUL_EN = true) then
+
+          when S_BUSY => -- processing
+            ctrl.cnt <= std_ulogic_vector(unsigned(ctrl.cnt) - 1);
+            if (ctrl.cnt = "00000") or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
               ctrl.state <= S_DONE;
-            else -- serial division or serial multiplication
-              ctrl.state <= S_BUSY;
             end if;
-          end if;
 
-        when S_BUSY => -- processing
-          ctrl.cnt <= std_ulogic_vector(unsigned(ctrl.cnt) - 1);
-          if (ctrl.cnt = "00000") or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
-            ctrl.state <= S_DONE;
-          end if;
+          when S_DONE => -- final step / enable output for one cycle
+            ctrl.out_en <= '1';
+            ctrl.state  <= S_IDLE;
 
-        when S_DONE => -- final step / enable output for one cycle
-          ctrl.out_en <= '1';
-          ctrl.state  <= S_IDLE;
-
-        when others => -- undefined
-          ctrl.state <= S_IDLE;
-      end case;
+          when others => -- undefined
+            ctrl.state <= S_IDLE;
+        end case;
+      end if;
     end if;
   end process coprocessor_ctrl;
 
@@ -234,17 +236,19 @@ begin
   if (FAST_MUL_EN = false) generate
 
     -- shift-and-add algorithm --
-    multiplier_core: process(rstn_i, clk_i)
+    multiplier_core: process(clk_i)
     begin
-      if (rstn_i = '0') then
-        mul.prod <= (others => def_rst_val_c);
-      elsif rising_edge(clk_i) then
-        if (mul.start = '1') then -- start new multiplication
-          mul.prod(63 downto 32) <= (others => '0');
-          mul.prod(31 downto 00) <= rs1_i;
-        elsif (ctrl.state = S_BUSY) or (ctrl.state = S_DONE) then -- processing step or sign-finalization step
-          mul.prod(63 downto 31) <= mul.add(32 downto 0);
-          mul.prod(30 downto 00) <= mul.prod(31 downto 1);
+      if rising_edge(clk_i) then
+        if (rstn_i = '0') then
+          mul.prod <= (others => def_rst_val_c);
+        else
+          if (mul.start = '1') then -- start new multiplication
+            mul.prod(63 downto 32) <= (others => '0');
+            mul.prod(31 downto 00) <= rs1_i;
+          elsif (ctrl.state = S_BUSY) or (ctrl.state = S_DONE) then -- processing step or sign-finalization step
+            mul.prod(63 downto 31) <= mul.add(32 downto 0);
+            mul.prod(30 downto 00) <= mul.prod(31 downto 1);
+          end if;
         end if;
       end if;
     end process multiplier_core;
@@ -282,25 +286,27 @@ begin
   if (DIVISION_EN = true) generate
 
     -- restoring division algorithm --
-    divider_core: process(rstn_i, clk_i)
+    divider_core: process(clk_i)
     begin
-      if (rstn_i = '0') then
-        div.quotient  <= (others => def_rst_val_c);
-        div.remainder <= (others => def_rst_val_c);
-      elsif rising_edge(clk_i) then
-        if (div.start = '1') then -- start new division
-          if ((rs1_i(rs1_i'left) and ctrl.rs1_is_signed) = '1') then -- signed division?
-            div.quotient <= std_ulogic_vector(0 - unsigned(rs1_i)); -- make positive
-          else
-            div.quotient <= rs1_i;
-          end if;
-          div.remainder <= (others => '0');
-        elsif (ctrl.state = S_BUSY) or (ctrl.state = S_DONE) then -- running?
-          div.quotient <= div.quotient(30 downto 0) & (not div.sub(32));
-          if (div.sub(32) = '0') then -- implicit shift
-            div.remainder <= div.sub(31 downto 0);
-          else -- underflow: restore and explicit shift
-            div.remainder <= div.remainder(30 downto 0) & div.quotient(31);
+      if rising_edge(clk_i) then
+        if (rstn_i = '0') then
+          div.quotient  <= (others => def_rst_val_c);
+          div.remainder <= (others => def_rst_val_c);
+        else
+          if (div.start = '1') then -- start new division
+            if ((rs1_i(rs1_i'left) and ctrl.rs1_is_signed) = '1') then -- signed division?
+              div.quotient <= std_ulogic_vector(0 - unsigned(rs1_i)); -- make positive
+            else
+              div.quotient <= rs1_i;
+            end if;
+            div.remainder <= (others => '0');
+          elsif (ctrl.state = S_BUSY) or (ctrl.state = S_DONE) then -- running?
+            div.quotient <= div.quotient(30 downto 0) & (not div.sub(32));
+            if (div.sub(32) = '0') then -- implicit shift
+              div.remainder <= div.sub(31 downto 0);
+            else -- underflow: restore and explicit shift
+              div.remainder <= div.remainder(30 downto 0) & div.quotient(31);
+            end if;
           end if;
         end if;
       end if;

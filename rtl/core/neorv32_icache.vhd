@@ -151,18 +151,20 @@ begin
 
   -- Control Engine FSM Sync ----------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  ctrl_engine_fsm_sync: process(rstn_i, clk_i)
+  ctrl_engine_fsm_sync: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl.state     <= S_CACHE_CLEAR; -- to reset cache information memory, which does not have an explicit reset
-      ctrl.re_buf    <= '0';
-      ctrl.clear_buf <= '0';
-      ctrl.addr_reg  <= (others => '-');
-    elsif rising_edge(clk_i) then
-      ctrl.state     <= ctrl.state_nxt;
-      ctrl.re_buf    <= ctrl.re_buf_nxt;
-      ctrl.clear_buf <= ctrl.clear_buf_nxt;
-      ctrl.addr_reg  <= ctrl.addr_reg_nxt;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl.state     <= S_CACHE_CLEAR; -- to reset cache information memory, which does not have an explicit reset
+        ctrl.re_buf    <= '0';
+        ctrl.clear_buf <= '0';
+        ctrl.addr_reg  <= (others => '-');
+      else
+        ctrl.state     <= ctrl.state_nxt;
+        ctrl.re_buf    <= ctrl.re_buf_nxt;
+        ctrl.clear_buf <= ctrl.clear_buf_nxt;
+        ctrl.addr_reg  <= ctrl.addr_reg_nxt;
+      end if;
     end if;
   end process ctrl_engine_fsm_sync;
 
@@ -224,7 +226,7 @@ begin
           ctrl.state_nxt <= S_CACHE_MISS;
         end if;
 
-      when S_CACHE_MISS => -- 
+      when S_CACHE_MISS => --
       -- ------------------------------------------------------------
         -- compute block base address --
         ctrl.addr_reg_nxt <= host_addr_i;

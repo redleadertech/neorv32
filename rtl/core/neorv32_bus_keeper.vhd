@@ -47,7 +47,7 @@ entity neorv32_bus_keeper is
   port (
     -- host access --
     clk_i      : in  std_ulogic; -- global clock line
-    rstn_i     : in  std_ulogic; -- global reset, low-active, async
+    rstn_i     : in  std_ulogic; -- global reset, low-active, sync
     addr_i     : in  std_ulogic_vector(31 downto 0); -- address
     rden_i     : in  std_ulogic; -- read enable
     wren_i     : in  std_ulogic; -- write enable
@@ -121,30 +121,32 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ack_o    <= '-';
-      data_o   <= (others => '-');
-      err_flag <= '0'; -- required
-      err_type <= '0';
-    elsif rising_edge(clk_i) then
-      -- bus handshake --
-      ack_o <= wren or rden;
-
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        data_o(ctrl_err_type_c) <= err_type;
-        data_o(ctrl_err_flag_c) <= err_flag;
-      end if;
-      --
-      if (control.bus_err = '1') then -- sticky error flag
-        err_flag <= '1';
-        err_type <= control.err_type;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ack_o    <= '-';
+        data_o   <= (others => '-');
+        err_flag <= '0'; -- required
+        err_type <= '0';
       else
-        if ((wren or rden) = '1') then -- clear on read or write access
-          err_flag <= '0';
+        -- bus handshake --
+        ack_o <= wren or rden;
+
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          data_o(ctrl_err_type_c) <= err_type;
+          data_o(ctrl_err_flag_c) <= err_flag;
+        end if;
+        --
+        if (control.bus_err = '1') then -- sticky error flag
+          err_flag <= '1';
+          err_type <= control.err_type;
+        else
+          if ((wren or rden) = '1') then -- clear on read or write access
+            err_flag <= '0';
+          end if;
         end if;
       end if;
     end if;
@@ -153,47 +155,49 @@ begin
 
   -- Keeper ---------------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  keeper_control: process(rstn_i, clk_i)
+  keeper_control: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      control.pending  <= '0'; -- required
-      control.bus_err  <= '0'; -- required
-      control.err_type <= '-';
-      control.timeout  <= (others => '-');
-      control.ignore   <= '-';
-    elsif rising_edge(clk_i) then
-      -- defaults --
-      control.bus_err <= '0';
-
-      -- access monitor: IDLE --
-      if (control.pending = '0') then
-        control.timeout <= std_ulogic_vector(to_unsigned(max_proc_int_response_time_c-1, cnt_width_c));
-        control.ignore  <= '0';
-        if (bus_rden_i = '1') or (bus_wren_i = '1') then
-          control.pending <= '1';
-        end if;
-      -- access monitor: PENDING --
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        control.pending  <= '0'; -- required
+        control.bus_err  <= '0'; -- required
+        control.err_type <= '-';
+        control.timeout  <= (others => '-');
+        control.ignore   <= '-';
       else
-        -- countdown timer --
-        if (control.expired = '0') then
-          control.timeout <= std_ulogic_vector(unsigned(control.timeout) - 1);
-        end if;
-        -- bus keeper shall ignore internal timeout during this access (because it's "external") --
-        control.ignore <= control.ignore or (bus_ext_i or bus_xip_i);
-        -- response handling --
-        if (bus_err_i = '1') then -- error termination by bus system
-          control.err_type <= err_device_c; -- device error
-          control.bus_err  <= '1';
-          control.pending  <= '0';
-        elsif ((control.expired = '1') and (control.ignore = '0')) or -- valid INTERNAL access timeout
-              (bus_tmo_i = '1') then -- EXTERNAL access timeout
-          control.err_type <= err_timeout_c; -- timeout error
-          control.bus_err  <= '1';
-          control.pending  <= '0';
-        elsif (bus_ack_i = '1') then -- normal termination by bus system
-          control.err_type <= '0'; -- don't care
-          control.bus_err  <= '0';
-          control.pending  <= '0';
+        -- defaults --
+        control.bus_err <= '0';
+
+        -- access monitor: IDLE --
+        if (control.pending = '0') then
+          control.timeout <= std_ulogic_vector(to_unsigned(max_proc_int_response_time_c-1, cnt_width_c));
+          control.ignore  <= '0';
+          if (bus_rden_i = '1') or (bus_wren_i = '1') then
+            control.pending <= '1';
+          end if;
+        -- access monitor: PENDING --
+        else
+          -- countdown timer --
+          if (control.expired = '0') then
+            control.timeout <= std_ulogic_vector(unsigned(control.timeout) - 1);
+          end if;
+          -- bus keeper shall ignore internal timeout during this access (because it's "external") --
+          control.ignore <= control.ignore or (bus_ext_i or bus_xip_i);
+          -- response handling --
+          if (bus_err_i = '1') then -- error termination by bus system
+            control.err_type <= err_device_c; -- device error
+            control.bus_err  <= '1';
+            control.pending  <= '0';
+          elsif ((control.expired = '1') and (control.ignore = '0')) or -- valid INTERNAL access timeout
+                (bus_tmo_i = '1') then -- EXTERNAL access timeout
+            control.err_type <= err_timeout_c; -- timeout error
+            control.bus_err  <= '1';
+            control.pending  <= '0';
+          elsif (bus_ack_i = '1') then -- normal termination by bus system
+            control.err_type <= '0'; -- don't care
+            control.bus_err  <= '0';
+            control.pending  <= '0';
+          end if;
         end if;
       end if;
     end if;

@@ -200,52 +200,54 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl.enable   <= '0';
-      ctrl.mode     <= '0';
-      ctrl.strobe   <= '0';
-      ctrl.clk_prsc <= (others => '0');
-      ctrl.irq_conf <= '0';
-      ctrl.t_total  <= (others => '0');
-      ctrl.t0_high  <= (others => '0');
-      ctrl.t1_high  <= (others => '0');
-      ack_o         <= '-';
-      data_o        <= (others => '-');
-    elsif rising_edge(clk_i) then
-      -- access acknowledge --
-      ack_o <= wren or rden;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl.enable   <= '0';
+        ctrl.mode     <= '0';
+        ctrl.strobe   <= '0';
+        ctrl.clk_prsc <= (others => '0');
+        ctrl.irq_conf <= '0';
+        ctrl.t_total  <= (others => '0');
+        ctrl.t0_high  <= (others => '0');
+        ctrl.t1_high  <= (others => '0');
+        ack_o         <= '-';
+        data_o        <= (others => '-');
+      else
+        -- access acknowledge --
+        ack_o <= wren or rden;
 
-      -- write access: control register --
-      if (wren = '1') and (addr = neoled_ctrl_addr_c) then
-        ctrl.enable   <= data_i(ctrl_en_c);
-        ctrl.mode     <= data_i(ctrl_mode_c);
-        ctrl.strobe   <= data_i(ctrl_strobe_c);
-        ctrl.clk_prsc <= data_i(ctrl_clksel2_c downto ctrl_clksel0_c);
-        ctrl.irq_conf <= data_i(ctrl_irq_conf_c);
-        ctrl.t_total  <= data_i(ctrl_t_tot_4_c downto ctrl_t_tot_0_c);
-        ctrl.t0_high  <= data_i(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c);
-        ctrl.t1_high  <= data_i(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c);
-      end if;
+        -- write access: control register --
+        if (wren = '1') and (addr = neoled_ctrl_addr_c) then
+          ctrl.enable   <= data_i(ctrl_en_c);
+          ctrl.mode     <= data_i(ctrl_mode_c);
+          ctrl.strobe   <= data_i(ctrl_strobe_c);
+          ctrl.clk_prsc <= data_i(ctrl_clksel2_c downto ctrl_clksel0_c);
+          ctrl.irq_conf <= data_i(ctrl_irq_conf_c);
+          ctrl.t_total  <= data_i(ctrl_t_tot_4_c downto ctrl_t_tot_0_c);
+          ctrl.t0_high  <= data_i(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c);
+          ctrl.t1_high  <= data_i(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c);
+        end if;
 
-      -- read access: control register --
-      data_o <= (others => '0');
-      if (rden = '1') then -- and (addr = neoled_ctrl_addr_c) then
-        data_o(ctrl_en_c)                            <= ctrl.enable;
-        data_o(ctrl_mode_c)                          <= ctrl.mode;
-        data_o(ctrl_strobe_c)                        <= ctrl.strobe;
-        data_o(ctrl_clksel2_c downto ctrl_clksel0_c) <= ctrl.clk_prsc;
-        data_o(ctrl_irq_conf_c)                      <= ctrl.irq_conf or bool_to_ulogic_f(boolean(FIFO_DEPTH = 1)); -- tie to one if FIFO_DEPTH is 1
-        data_o(ctrl_bufs_3_c  downto ctrl_bufs_0_c)  <= std_ulogic_vector(to_unsigned(index_size_f(FIFO_DEPTH), 4));
-        data_o(ctrl_t_tot_4_c downto ctrl_t_tot_0_c) <= ctrl.t_total;
-        data_o(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c)  <= ctrl.t0_high;
-        data_o(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c)  <= ctrl.t1_high;
-        --
-        data_o(ctrl_tx_empty_c)                      <= not tx_buffer.avail;
-        data_o(ctrl_tx_half_c)                       <= tx_buffer.half;
-        data_o(ctrl_tx_full_c)                       <= not tx_buffer.free;
-        data_o(ctrl_tx_busy_c)                       <= serial.busy;
+        -- read access: control register --
+        data_o <= (others => '0');
+        if (rden = '1') then -- and (addr = neoled_ctrl_addr_c) then
+          data_o(ctrl_en_c)                            <= ctrl.enable;
+          data_o(ctrl_mode_c)                          <= ctrl.mode;
+          data_o(ctrl_strobe_c)                        <= ctrl.strobe;
+          data_o(ctrl_clksel2_c downto ctrl_clksel0_c) <= ctrl.clk_prsc;
+          data_o(ctrl_irq_conf_c)                      <= ctrl.irq_conf or bool_to_ulogic_f(boolean(FIFO_DEPTH = 1)); -- tie to one if FIFO_DEPTH is 1
+          data_o(ctrl_bufs_3_c  downto ctrl_bufs_0_c)  <= std_ulogic_vector(to_unsigned(index_size_f(FIFO_DEPTH), 4));
+          data_o(ctrl_t_tot_4_c downto ctrl_t_tot_0_c) <= ctrl.t_total;
+          data_o(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c)  <= ctrl.t0_high;
+          data_o(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c)  <= ctrl.t1_high;
+          --
+          data_o(ctrl_tx_empty_c)                      <= not tx_buffer.avail;
+          data_o(ctrl_tx_half_c)                       <= tx_buffer.half;
+          data_o(ctrl_tx_full_c)                       <= not tx_buffer.free;
+          data_o(ctrl_tx_busy_c)                       <= serial.busy;
+        end if;
       end if;
     end if;
   end process rw_access;
@@ -338,7 +340,7 @@ begin
 
           when S_INIT => -- initialize TX shift engine
           -- ------------------------------------------------------------
-            if (tx_buffer.rdata(32) = '0') then -- mode = "RGB" 
+            if (tx_buffer.rdata(32) = '0') then -- mode = "RGB"
               serial.mode    <= '0';
               serial.bit_cnt <= "011000"; -- total number of bits to send: 3x8=24
             else -- mode = "RGBW"

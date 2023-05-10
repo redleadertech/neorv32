@@ -206,48 +206,50 @@ begin
   -- supported (and acknowledged) by this example. Sub-word write access will not alter any CFS register state and will cause
   -- a "bus store access" exception (with a "Device Timeout" qualifier as not ACK is generated in that case).
 
-  host_access: process(rstn_i, clk_i)
+  host_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      cfs_reg_wr(0) <= (others => '0');
-      cfs_reg_wr(1) <= (others => '0');
-      cfs_reg_wr(2) <= (others => '0');
-      cfs_reg_wr(3) <= (others => '0');
-      --
-      ack_o  <= '-'; -- no actual reset required
-      data_o <= (others => '-'); -- no actual reset required
-    elsif rising_edge(clk_i) then -- synchronous interface for read and write accesses
-      -- transfer/access acknowledge --
-      -- default: required for the CPU to check the CFS is answering a bus read OR write request;
-      -- all read and write accesses (to any cfs_reg, even if there is no according physical register implemented) will succeed.
-      ack_o <= rden or wren;
+    if rising_edge(clk_i) then -- synchronous interface for read and write accesses
+      if (rstn_i = '0') then
+        cfs_reg_wr(0) <= (others => '0');
+        cfs_reg_wr(1) <= (others => '0');
+        cfs_reg_wr(2) <= (others => '0');
+        cfs_reg_wr(3) <= (others => '0');
+        --
+        ack_o  <= '-'; -- no actual reset required
+        data_o <= (others => '-'); -- no actual reset required
+      else
+        -- transfer/access acknowledge --
+        -- default: required for the CPU to check the CFS is answering a bus read OR write request;
+        -- all read and write accesses (to any cfs_reg, even if there is no according physical register implemented) will succeed.
+        ack_o <= rden or wren;
 
-      -- write access --
-      if (wren = '1') then -- full-word write access, high for one cycle if there is an actual write access
-        if (addr = cfs_reg0_addr_c) then -- make sure to use the internal "addr" signal for the read/write interface
-          cfs_reg_wr(0) <= data_i; -- some physical register, for example: control register
+        -- write access --
+        if (wren = '1') then -- full-word write access, high for one cycle if there is an actual write access
+          if (addr = cfs_reg0_addr_c) then -- make sure to use the internal "addr" signal for the read/write interface
+            cfs_reg_wr(0) <= data_i; -- some physical register, for example: control register
+          end if;
+          if (addr = cfs_reg1_addr_c) then
+            cfs_reg_wr(1) <= data_i; -- some physical register, for example: data in/out fifo
+          end if;
+          if (addr = cfs_reg2_addr_c) then
+            cfs_reg_wr(2) <= data_i; -- some physical register, for example: command fifo
+          end if;
+          if (addr = cfs_reg3_addr_c) then
+            cfs_reg_wr(3) <= data_i; -- some physical register, for example: status register
+          end if;
         end if;
-        if (addr = cfs_reg1_addr_c) then
-          cfs_reg_wr(1) <= data_i; -- some physical register, for example: data in/out fifo
-        end if;
-        if (addr = cfs_reg2_addr_c) then
-          cfs_reg_wr(2) <= data_i; -- some physical register, for example: command fifo
-        end if;
-        if (addr = cfs_reg3_addr_c) then
-          cfs_reg_wr(3) <= data_i; -- some physical register, for example: status register
-        end if;
-      end if;
 
-      -- read access --
-      data_o <= (others => '0'); -- the output HAS TO BE ZERO if there is no actual read access
-      if (rden = '1') then -- the read access is always 32-bit wide, high for one cycle if there is an actual read access
-        case addr is -- make sure to use the internal 'addr' signal for the read/write interface
-          when cfs_reg0_addr_c => data_o <= cfs_reg_rd(0);
-          when cfs_reg1_addr_c => data_o <= cfs_reg_rd(1);
-          when cfs_reg2_addr_c => data_o <= cfs_reg_rd(2);
-          when cfs_reg3_addr_c => data_o <= cfs_reg_rd(3);
-          when others          => data_o <= (others => '0'); -- the remaining registers are not implemented and will read as zero
-        end case;
+        -- read access --
+        data_o <= (others => '0'); -- the output HAS TO BE ZERO if there is no actual read access
+        if (rden = '1') then -- the read access is always 32-bit wide, high for one cycle if there is an actual read access
+          case addr is -- make sure to use the internal 'addr' signal for the read/write interface
+            when cfs_reg0_addr_c => data_o <= cfs_reg_rd(0);
+            when cfs_reg1_addr_c => data_o <= cfs_reg_rd(1);
+            when cfs_reg2_addr_c => data_o <= cfs_reg_rd(2);
+            when cfs_reg3_addr_c => data_o <= cfs_reg_rd(3);
+            when others          => data_o <= (others => '0'); -- the remaining registers are not implemented and will read as zero
+          end case;
+        end if;
       end if;
     end if;
   end process host_access;

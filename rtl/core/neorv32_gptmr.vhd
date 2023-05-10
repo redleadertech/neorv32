@@ -111,51 +111,53 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      timer.cnt_we <= '0';
-      ctrl         <= (others => '0');
-      timer.thres  <= (others => '0');
-      ack_o        <= '-';
-      data_o       <= (others => '-');
-    elsif rising_edge(clk_i) then
-      -- bus access acknowledge --
-      ack_o <= rden or wren;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        timer.cnt_we <= '0';
+        ctrl         <= (others => '0');
+        timer.thres  <= (others => '0');
+        ack_o        <= '-';
+        data_o       <= (others => '-');
+      else
+        -- bus access acknowledge --
+        ack_o <= rden or wren;
 
-      -- write access --
-      timer.cnt_we <= '0';
-      if (wren = '1') then
-        if (addr = gptmr_ctrl_addr_c) then -- control register
-          ctrl(ctrl_en_c)    <= data_i(ctrl_en_c);
-          ctrl(ctrl_prsc0_c) <= data_i(ctrl_prsc0_c);
-          ctrl(ctrl_prsc1_c) <= data_i(ctrl_prsc1_c);
-          ctrl(ctrl_prsc2_c) <= data_i(ctrl_prsc2_c);
-          ctrl(ctrl_mode_c)  <= data_i(ctrl_mode_c);
+        -- write access --
+        timer.cnt_we <= '0';
+        if (wren = '1') then
+          if (addr = gptmr_ctrl_addr_c) then -- control register
+            ctrl(ctrl_en_c)    <= data_i(ctrl_en_c);
+            ctrl(ctrl_prsc0_c) <= data_i(ctrl_prsc0_c);
+            ctrl(ctrl_prsc1_c) <= data_i(ctrl_prsc1_c);
+            ctrl(ctrl_prsc2_c) <= data_i(ctrl_prsc2_c);
+            ctrl(ctrl_mode_c)  <= data_i(ctrl_mode_c);
+          end if;
+          if (addr = gptmr_thres_addr_c) then -- threshold register
+            timer.thres <= data_i;
+          end if;
+          if (addr = gptmr_count_addr_c) then -- counter register
+            timer.cnt_we <= '1';
+          end if;
         end if;
-        if (addr = gptmr_thres_addr_c) then -- threshold register
-          timer.thres <= data_i;
-        end if;
-        if (addr = gptmr_count_addr_c) then -- counter register
-          timer.cnt_we <= '1';
-        end if;
-      end if;
 
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr(3 downto 2) is
-          when "00" => -- control register
-            data_o(ctrl_en_c)    <= ctrl(ctrl_en_c);
-            data_o(ctrl_prsc0_c) <= ctrl(ctrl_prsc0_c);
-            data_o(ctrl_prsc1_c) <= ctrl(ctrl_prsc1_c);
-            data_o(ctrl_prsc2_c) <= ctrl(ctrl_prsc2_c);
-            data_o(ctrl_mode_c)  <= ctrl(ctrl_mode_c);
-          when "01" => -- threshold register
-            data_o <= timer.thres;
-          when others => -- counter register
-            data_o <= timer.count;
-        end case;
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          case addr(3 downto 2) is
+            when "00" => -- control register
+              data_o(ctrl_en_c)    <= ctrl(ctrl_en_c);
+              data_o(ctrl_prsc0_c) <= ctrl(ctrl_prsc0_c);
+              data_o(ctrl_prsc1_c) <= ctrl(ctrl_prsc1_c);
+              data_o(ctrl_prsc2_c) <= ctrl(ctrl_prsc2_c);
+              data_o(ctrl_mode_c)  <= ctrl(ctrl_mode_c);
+            when "01" => -- threshold register
+              data_o <= timer.thres;
+            when others => -- counter register
+              data_o <= timer.count;
+          end case;
+        end if;
       end if;
     end if;
   end process rw_access;
@@ -169,20 +171,22 @@ begin
 
   -- Timer Core -----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  timer_core: process(rstn_i, clk_i)
+  timer_core: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      timer.count <= (others => '0');
-    elsif rising_edge(clk_i) then
-      if (timer.cnt_we = '1') then -- write access
-        timer.count <= data_i; -- data_i will stay unchanged for min. 1 cycle after WREN has returned to low again
-      elsif (ctrl(ctrl_en_c) = '1') and (gptmr_clk_en = '1') then -- enabled and clock tick
-        if (timer.match = '1') then
-          if (ctrl(ctrl_mode_c) = '1') then -- reset counter if continuous mode
-            timer.count <= (others => '0');
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        timer.count <= (others => '0');
+      else
+        if (timer.cnt_we = '1') then -- write access
+          timer.count <= data_i; -- data_i will stay unchanged for min. 1 cycle after WREN has returned to low again
+        elsif (ctrl(ctrl_en_c) = '1') and (gptmr_clk_en = '1') then -- enabled and clock tick
+          if (timer.match = '1') then
+            if (ctrl(ctrl_mode_c) = '1') then -- reset counter if continuous mode
+              timer.count <= (others => '0');
+            end if;
+          else
+            timer.count <= std_ulogic_vector(unsigned(timer.count) + 1);
           end if;
-        else
-          timer.count <= std_ulogic_vector(unsigned(timer.count) + 1);
         end if;
       end if;
     end if;

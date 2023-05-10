@@ -88,30 +88,32 @@ begin
   if (FAST_SHIFT_EN = false) generate
 
     -- shifter core --
-    serial_shifter_core: process(rstn_i, clk_i)
+    serial_shifter_core: process(clk_i)
     begin
-      if (rstn_i = '0') then
-        shifter.busy_ff <= '-';
-        shifter.busy    <= '0';
-        shifter.cnt     <= (others => def_rst_val_c);
-        shifter.sreg    <= (others => def_rst_val_c);
-      elsif rising_edge(clk_i) then
-        shifter.busy_ff <= shifter.busy;
-        if (start_i = '1') then
-          shifter.busy <= '1';
-        elsif (shifter.done = '1') or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
-          shifter.busy <= '0';
-        end if;
-        --
-        if (start_i = '1') then -- trigger new shift
-          shifter.cnt  <= shamt_i; -- shift amount
-          shifter.sreg <= rs1_i; -- shift data
-        elsif (or_reduce_f(shifter.cnt) = '1') then -- running shift (cnt != 0)
-          shifter.cnt <= std_ulogic_vector(unsigned(shifter.cnt) - 1);
-          if (ctrl_i(ctrl_ir_funct3_2_c) = '0') then -- SLL: shift left logical
-            shifter.sreg <= shifter.sreg(shifter.sreg'left-1 downto 0) & '0';
-          else -- SRL: shift right logical / SRA: shift right arithmetical
-            shifter.sreg <= (shifter.sreg(shifter.sreg'left) and ctrl_i(ctrl_ir_funct12_10_c)) & shifter.sreg(shifter.sreg'left downto 1);
+      if rising_edge(clk_i) then
+        if (rstn_i = '0') then
+          shifter.busy_ff <= '-';
+          shifter.busy    <= '0';
+          shifter.cnt     <= (others => def_rst_val_c);
+          shifter.sreg    <= (others => def_rst_val_c);
+        else
+          shifter.busy_ff <= shifter.busy;
+          if (start_i = '1') then
+            shifter.busy <= '1';
+          elsif (shifter.done = '1') or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
+            shifter.busy <= '0';
+          end if;
+          --
+          if (start_i = '1') then -- trigger new shift
+            shifter.cnt  <= shamt_i; -- shift amount
+            shifter.sreg <= rs1_i; -- shift data
+          elsif (or_reduce_f(shifter.cnt) = '1') then -- running shift (cnt != 0)
+            shifter.cnt <= std_ulogic_vector(unsigned(shifter.cnt) - 1);
+            if (ctrl_i(ctrl_ir_funct3_2_c) = '0') then -- SLL: shift left logical
+              shifter.sreg <= shifter.sreg(shifter.sreg'left-1 downto 0) & '0';
+            else -- SRL: shift right logical / SRA: shift right arithmetical
+              shifter.sreg <= (shifter.sreg(shifter.sreg'left) and ctrl_i(ctrl_ir_funct12_10_c)) & shifter.sreg(shifter.sreg'left downto 1);
+            end if;
           end if;
         end if;
       end if;

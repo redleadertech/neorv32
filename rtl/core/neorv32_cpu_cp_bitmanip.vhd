@@ -226,78 +226,80 @@ begin
 
   -- Co-Processor Controller ----------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  coprocessor_ctrl: process(rstn_i, clk_i)
+  coprocessor_ctrl: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl_state    <= S_IDLE;
-      cmd_buf       <= (others => def_rst_val_c);
-      rs1_reg       <= (others => def_rst_val_c);
-      rs2_reg       <= (others => def_rst_val_c);
-      sha_reg       <= (others => def_rst_val_c);
-      less_reg      <= def_rst_val_c;
-      clmul.start   <= '0';
-      shifter.start <= '0';
-      valid         <= '0';
-    elsif rising_edge(clk_i) then
-      -- defaults --
-      shifter.start <= '0';
-      clmul.start   <= '0';
-      valid         <= '0';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl_state    <= S_IDLE;
+        cmd_buf       <= (others => def_rst_val_c);
+        rs1_reg       <= (others => def_rst_val_c);
+        rs2_reg       <= (others => def_rst_val_c);
+        sha_reg       <= (others => def_rst_val_c);
+        less_reg      <= def_rst_val_c;
+        clmul.start   <= '0';
+        shifter.start <= '0';
+        valid         <= '0';
+      else
+        -- defaults --
+        shifter.start <= '0';
+        clmul.start   <= '0';
+        valid         <= '0';
 
-      -- operand registers --
-      if (start_i = '1') then
-        less_reg <= cmp_i(cmp_less_c);
-        cmd_buf  <= cmd;
-        rs1_reg  <= rs1_i;
-        rs2_reg  <= rs2_i;
-        sha_reg  <= shamt_i;
-      end if;
+        -- operand registers --
+        if (start_i = '1') then
+          less_reg <= cmp_i(cmp_less_c);
+          cmd_buf  <= cmd;
+          rs1_reg  <= rs1_i;
+          rs2_reg  <= rs2_i;
+          sha_reg  <= shamt_i;
+        end if;
 
-      -- fsm --
-      case ctrl_state is
+        -- fsm --
+        case ctrl_state is
 
-        when S_IDLE => -- wait for operation trigger
-        -- ------------------------------------------------------------
-          if (start_i = '1') then
-            if (FAST_SHIFT_EN = false) and ((cmd(op_clz_c) or cmd(op_ctz_c) or cmd(op_cpop_c) or cmd(op_ror_c) or cmd(op_rol_c)) = '1') then -- multi-cycle shift operation
-              shifter.start <= '1';
-              ctrl_state <= S_START_SHIFT;
-            elsif (zbc_en_c = true) and ((cmd(op_clmul_c) or cmd(op_clmulh_c) or cmd(op_clmulr_c)) = '1') then -- multi-cycle clmul operation
-              clmul.start <= '1';
-              ctrl_state  <= S_START_CLMUL;
-            else
+          when S_IDLE => -- wait for operation trigger
+          -- ------------------------------------------------------------
+            if (start_i = '1') then
+              if (FAST_SHIFT_EN = false) and ((cmd(op_clz_c) or cmd(op_ctz_c) or cmd(op_cpop_c) or cmd(op_ror_c) or cmd(op_rol_c)) = '1') then -- multi-cycle shift operation
+                shifter.start <= '1';
+                ctrl_state <= S_START_SHIFT;
+              elsif (zbc_en_c = true) and ((cmd(op_clmul_c) or cmd(op_clmulh_c) or cmd(op_clmulr_c)) = '1') then -- multi-cycle clmul operation
+                clmul.start <= '1';
+                ctrl_state  <= S_START_CLMUL;
+              else
+                valid      <= '1';
+                ctrl_state <= S_IDLE;
+              end if;
+            end if;
+
+          when S_START_SHIFT => -- one cycle delay to start shift operation
+          -- ------------------------------------------------------------
+            ctrl_state <= S_BUSY_SHIFT;
+
+          when S_BUSY_SHIFT => -- wait for multi-cycle shift operation to finish
+          -- ------------------------------------------------------------
+            if (shifter.run = '0') or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
               valid      <= '1';
               ctrl_state <= S_IDLE;
             end if;
-          end if;
 
-        when S_START_SHIFT => -- one cycle delay to start shift operation
-        -- ------------------------------------------------------------
-          ctrl_state <= S_BUSY_SHIFT;
+          when S_START_CLMUL => -- one cycle delay to start clmul operation
+          -- ------------------------------------------------------------
+            ctrl_state <= S_BUSY_CLMUL;
 
-        when S_BUSY_SHIFT => -- wait for multi-cycle shift operation to finish
-        -- ------------------------------------------------------------
-          if (shifter.run = '0') or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
-            valid      <= '1';
+          when S_BUSY_CLMUL => -- wait for multi-cycle clmul operation to finish
+          -- ------------------------------------------------------------
+            if (clmul.busy = '0') or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
+              valid      <= '1';
+              ctrl_state <= S_IDLE;
+            end if;
+
+          when others => -- undefined
+          -- ------------------------------------------------------------
             ctrl_state <= S_IDLE;
-          end if;
 
-        when S_START_CLMUL => -- one cycle delay to start clmul operation
-        -- ------------------------------------------------------------
-          ctrl_state <= S_BUSY_CLMUL;
-
-        when S_BUSY_CLMUL => -- wait for multi-cycle clmul operation to finish
-        -- ------------------------------------------------------------
-          if (clmul.busy = '0') or (ctrl_i(ctrl_trap_c) = '1') then -- abort on trap
-            valid      <= '1';
-            ctrl_state <= S_IDLE;
-          end if;
-
-        when others => -- undefined
-        -- ------------------------------------------------------------
-          ctrl_state <= S_IDLE;
-
-      end case;
+        end case;
+      end if;
     end if;
   end process coprocessor_ctrl;
 
@@ -307,37 +309,39 @@ begin
   serial_shifter:
   if (FAST_SHIFT_EN = false) generate
 
-    shifter_unit: process(rstn_i, clk_i)
+    shifter_unit: process(clk_i)
       variable new_bit_v : std_ulogic;
     begin
-      if (rstn_i = '0') then
-        shifter.cnt     <= (others => def_rst_val_c);
-        shifter.sreg    <= (others => def_rst_val_c);
-        shifter.cnt_max <= (others => def_rst_val_c);
-        shifter.bcnt    <= (others => def_rst_val_c);
-      elsif rising_edge(clk_i) then
-        if (shifter.start = '1') then -- trigger new shift
-          shifter.cnt <= (others => '0');
-          -- shift operand --
-          if (cmd_buf(op_clz_c) = '1') or (cmd_buf(op_rol_c) = '1') then -- clz, rol
-            shifter.sreg <= bit_rev_f(rs1_reg); -- reverse - we can only do right shifts here
-          else -- ctz, cpop, ror
-            shifter.sreg <= rs1_reg;
-          end if;
-          -- max shift amount --
-          if (cmd_buf(op_cpop_c) = '1') then -- population count
-            shifter.cnt_max <= (others => '0');
-            shifter.cnt_max(shifter.cnt_max'left) <= '1';
-          else
-            shifter.cnt_max <= '0' & sha_reg;
-          end if;
-          shifter.bcnt <= (others => '0');
-        elsif (shifter.run = '1') then -- right shifts only
-          new_bit_v := ((cmd_buf(op_ror_c) or cmd_buf(op_rol_c)) and shifter.sreg(0)) or (cmd_buf(op_clz_c) or cmd_buf(op_ctz_c));
-          shifter.sreg <= new_bit_v & shifter.sreg(shifter.sreg'left downto 1); -- ro[r/l]/lsr(for counting)
-          shifter.cnt  <= std_ulogic_vector(unsigned(shifter.cnt) + 1); -- iteration counter
-          if (shifter.sreg(0) = '1') then
-            shifter.bcnt <= std_ulogic_vector(unsigned(shifter.bcnt) + 1); -- bit counter
+      if rising_edge(clk_i) then
+        if (rstn_i = '0') then
+          shifter.cnt     <= (others => def_rst_val_c);
+          shifter.sreg    <= (others => def_rst_val_c);
+          shifter.cnt_max <= (others => def_rst_val_c);
+          shifter.bcnt    <= (others => def_rst_val_c);
+        else
+          if (shifter.start = '1') then -- trigger new shift
+            shifter.cnt <= (others => '0');
+            -- shift operand --
+            if (cmd_buf(op_clz_c) = '1') or (cmd_buf(op_rol_c) = '1') then -- clz, rol
+              shifter.sreg <= bit_rev_f(rs1_reg); -- reverse - we can only do right shifts here
+            else -- ctz, cpop, ror
+              shifter.sreg <= rs1_reg;
+            end if;
+            -- max shift amount --
+            if (cmd_buf(op_cpop_c) = '1') then -- population count
+              shifter.cnt_max <= (others => '0');
+              shifter.cnt_max(shifter.cnt_max'left) <= '1';
+            else
+              shifter.cnt_max <= '0' & sha_reg;
+            end if;
+            shifter.bcnt <= (others => '0');
+          elsif (shifter.run = '1') then -- right shifts only
+            new_bit_v := ((cmd_buf(op_ror_c) or cmd_buf(op_rol_c)) and shifter.sreg(0)) or (cmd_buf(op_clz_c) or cmd_buf(op_ctz_c));
+            shifter.sreg <= new_bit_v & shifter.sreg(shifter.sreg'left downto 1); -- ro[r/l]/lsr(for counting)
+            shifter.cnt  <= std_ulogic_vector(unsigned(shifter.cnt) + 1); -- iteration counter
+            if (shifter.sreg(0) = '1') then
+              shifter.bcnt <= std_ulogic_vector(unsigned(shifter.bcnt) + 1); -- bit counter
+            end if;
           end if;
         end if;
       end if;
@@ -429,29 +433,31 @@ begin
 
   -- Carry-Less Multiplication Core ---------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  clmul_core: process(rstn_i, clk_i)
+  clmul_core: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      clmul.cnt  <= (others => def_rst_val_c);
-      clmul.prod <= (others => def_rst_val_c);
-    elsif rising_edge(clk_i) then
-      if (clmul.start = '1') then -- start new multiplication
-        clmul.cnt                 <= (others => '0');
-        clmul.cnt(clmul.cnt'left) <= '1';
-        clmul.prod(63 downto 32)  <= (others => '0');
-        if (cmd_buf(op_clmulr_c) = '1') then -- reverse input operands?
-          clmul.prod(31 downto 00) <= bit_rev_f(rs1_reg);
-        else
-          clmul.prod(31 downto 00) <= rs1_reg;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        clmul.cnt  <= (others => def_rst_val_c);
+        clmul.prod <= (others => def_rst_val_c);
+      else
+        if (clmul.start = '1') then -- start new multiplication
+          clmul.cnt                 <= (others => '0');
+          clmul.cnt(clmul.cnt'left) <= '1';
+          clmul.prod(63 downto 32)  <= (others => '0');
+          if (cmd_buf(op_clmulr_c) = '1') then -- reverse input operands?
+            clmul.prod(31 downto 00) <= bit_rev_f(rs1_reg);
+          else
+            clmul.prod(31 downto 00) <= rs1_reg;
+          end if;
+        elsif (clmul.busy = '1') then -- processing
+          clmul.cnt <= std_ulogic_vector(unsigned(clmul.cnt) - 1);
+          if (clmul.prod(0) = '1') then
+            clmul.prod(62 downto 31) <= clmul.prod(63 downto 32) xor clmul.rs2;
+          else
+            clmul.prod(62 downto 31) <= clmul.prod(63 downto 32);
+          end if;
+          clmul.prod(30 downto 00) <= clmul.prod(31 downto 1);
         end if;
-      elsif (clmul.busy = '1') then -- processing
-        clmul.cnt <= std_ulogic_vector(unsigned(clmul.cnt) - 1);
-        if (clmul.prod(0) = '1') then
-          clmul.prod(62 downto 31) <= clmul.prod(63 downto 32) xor clmul.rs2;
-        else
-          clmul.prod(62 downto 31) <= clmul.prod(63 downto 32);
-        end if;
-        clmul.prod(30 downto 00) <= clmul.prod(31 downto 1);
       end if;
     end if;
   end process clmul_core;

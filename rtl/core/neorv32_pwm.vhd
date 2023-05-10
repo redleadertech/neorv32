@@ -114,54 +114,56 @@ begin
 
   -- Write access ---------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  wr_access: process(rstn_i, clk_i)
+  wr_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      enable <= '0';
-      prsc   <= (others => '0');
-      pwm_ch <= (others => (others => '0'));
-      ack_o  <= '-';
-      data_o <= (others => '-');
-    elsif rising_edge(clk_i) then
-      ack_o <= rden or wren;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        enable <= '0';
+        prsc   <= (others => '0');
+        pwm_ch <= (others => (others => '0'));
+        ack_o  <= '-';
+        data_o <= (others => '-');
+      else
+        ack_o <= rden or wren;
 
-      -- write access --
-      if (wren = '1') then
-        -- control register --
-        if (addr = pwm_ctrl_addr_c) then
-          enable <= data_i(ctrl_enable_c);
-          prsc   <= data_i(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c);
-        end if;
-        -- duty cycle registers --
-        for i in 0 to NUM_CHANNELS-1 loop -- channel loop
-          if (addr(5 downto 2) = std_ulogic_vector(to_unsigned((i/4)+1, 4))) then -- 4 channels per register; add ctrl reg offset
-            pwm_ch(i) <= data_i((i mod 4)*8+7 downto (i mod 4)*8+0);
+        -- write access --
+        if (wren = '1') then
+          -- control register --
+          if (addr = pwm_ctrl_addr_c) then
+            enable <= data_i(ctrl_enable_c);
+            prsc   <= data_i(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c);
           end if;
-        end loop;
-      end if;
+          -- duty cycle registers --
+          for i in 0 to NUM_CHANNELS-1 loop -- channel loop
+            if (addr(5 downto 2) = std_ulogic_vector(to_unsigned((i/4)+1, 4))) then -- 4 channels per register; add ctrl reg offset
+              pwm_ch(i) <= data_i((i mod 4)*8+7 downto (i mod 4)*8+0);
+            end if;
+          end loop;
+        end if;
 
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr(5 downto 2) is
-          when x"0"   => data_o(ctrl_enable_c) <= enable; data_o(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c) <= prsc;
-          when x"1"   => data_o <= pwm_ch_rd(3)  & pwm_ch_rd(2)  & pwm_ch_rd(1)  & pwm_ch_rd(0);
-          when x"2"   => data_o <= pwm_ch_rd(7)  & pwm_ch_rd(6)  & pwm_ch_rd(5)  & pwm_ch_rd(4);
-          when x"3"   => data_o <= pwm_ch_rd(11) & pwm_ch_rd(10) & pwm_ch_rd(9)  & pwm_ch_rd(8);
-          when x"4"   => data_o <= pwm_ch_rd(15) & pwm_ch_rd(14) & pwm_ch_rd(13) & pwm_ch_rd(12);
-          when x"5"   => data_o <= pwm_ch_rd(19) & pwm_ch_rd(18) & pwm_ch_rd(17) & pwm_ch_rd(16);
-          when x"6"   => data_o <= pwm_ch_rd(23) & pwm_ch_rd(22) & pwm_ch_rd(21) & pwm_ch_rd(20);
-          when x"7"   => data_o <= pwm_ch_rd(27) & pwm_ch_rd(26) & pwm_ch_rd(25) & pwm_ch_rd(24);
-          when x"8"   => data_o <= pwm_ch_rd(31) & pwm_ch_rd(30) & pwm_ch_rd(29) & pwm_ch_rd(28);
-          when x"9"   => data_o <= pwm_ch_rd(35) & pwm_ch_rd(34) & pwm_ch_rd(33) & pwm_ch_rd(32);
-          when x"a"   => data_o <= pwm_ch_rd(39) & pwm_ch_rd(38) & pwm_ch_rd(37) & pwm_ch_rd(36);
-          when x"b"   => data_o <= pwm_ch_rd(43) & pwm_ch_rd(42) & pwm_ch_rd(41) & pwm_ch_rd(40);
-          when x"c"   => data_o <= pwm_ch_rd(47) & pwm_ch_rd(46) & pwm_ch_rd(45) & pwm_ch_rd(44);
-          when x"d"   => data_o <= pwm_ch_rd(51) & pwm_ch_rd(50) & pwm_ch_rd(49) & pwm_ch_rd(48);
-          when x"e"   => data_o <= pwm_ch_rd(55) & pwm_ch_rd(54) & pwm_ch_rd(53) & pwm_ch_rd(52);
-          when x"f"   => data_o <= pwm_ch_rd(59) & pwm_ch_rd(58) & pwm_ch_rd(57) & pwm_ch_rd(56);
-          when others => data_o <= (others => '0');
-        end case;
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          case addr(5 downto 2) is
+            when x"0"   => data_o(ctrl_enable_c) <= enable; data_o(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c) <= prsc;
+            when x"1"   => data_o <= pwm_ch_rd(3)  & pwm_ch_rd(2)  & pwm_ch_rd(1)  & pwm_ch_rd(0);
+            when x"2"   => data_o <= pwm_ch_rd(7)  & pwm_ch_rd(6)  & pwm_ch_rd(5)  & pwm_ch_rd(4);
+            when x"3"   => data_o <= pwm_ch_rd(11) & pwm_ch_rd(10) & pwm_ch_rd(9)  & pwm_ch_rd(8);
+            when x"4"   => data_o <= pwm_ch_rd(15) & pwm_ch_rd(14) & pwm_ch_rd(13) & pwm_ch_rd(12);
+            when x"5"   => data_o <= pwm_ch_rd(19) & pwm_ch_rd(18) & pwm_ch_rd(17) & pwm_ch_rd(16);
+            when x"6"   => data_o <= pwm_ch_rd(23) & pwm_ch_rd(22) & pwm_ch_rd(21) & pwm_ch_rd(20);
+            when x"7"   => data_o <= pwm_ch_rd(27) & pwm_ch_rd(26) & pwm_ch_rd(25) & pwm_ch_rd(24);
+            when x"8"   => data_o <= pwm_ch_rd(31) & pwm_ch_rd(30) & pwm_ch_rd(29) & pwm_ch_rd(28);
+            when x"9"   => data_o <= pwm_ch_rd(35) & pwm_ch_rd(34) & pwm_ch_rd(33) & pwm_ch_rd(32);
+            when x"a"   => data_o <= pwm_ch_rd(39) & pwm_ch_rd(38) & pwm_ch_rd(37) & pwm_ch_rd(36);
+            when x"b"   => data_o <= pwm_ch_rd(43) & pwm_ch_rd(42) & pwm_ch_rd(41) & pwm_ch_rd(40);
+            when x"c"   => data_o <= pwm_ch_rd(47) & pwm_ch_rd(46) & pwm_ch_rd(45) & pwm_ch_rd(44);
+            when x"d"   => data_o <= pwm_ch_rd(51) & pwm_ch_rd(50) & pwm_ch_rd(49) & pwm_ch_rd(48);
+            when x"e"   => data_o <= pwm_ch_rd(55) & pwm_ch_rd(54) & pwm_ch_rd(53) & pwm_ch_rd(52);
+            when x"f"   => data_o <= pwm_ch_rd(59) & pwm_ch_rd(58) & pwm_ch_rd(57) & pwm_ch_rd(56);
+            when others => data_o <= (others => '0');
+          end case;
+        end if;
       end if;
     end if;
   end process wr_access;
@@ -186,7 +188,7 @@ begin
   begin
     if rising_edge(clk_i) then
       -- pwm base counter --
-      if (enable = '0') then 
+      if (enable = '0') then
         pwm_cnt <= (others => '0');
       elsif (prsc_tick = '1') then
         pwm_cnt <= std_ulogic_vector(unsigned(pwm_cnt) + 1);

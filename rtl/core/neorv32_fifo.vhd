@@ -100,23 +100,25 @@ begin
 
   -- FIFO Pointers --------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  fifo_pointers: process(rstn_i, clk_i)
+  fifo_pointers: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      fifo.w_pnt <= (others => '0');
-      fifo.r_pnt <= (others => '0');
-    elsif rising_edge(clk_i) then
-      -- write port --
-      if (clear_i = '1') then
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
         fifo.w_pnt <= (others => '0');
-      elsif (fifo.we = '1') then
-        fifo.w_pnt <= std_ulogic_vector(unsigned(fifo.w_pnt) + 1);
-      end if;
-      -- read port --
-      if (clear_i = '1') then
         fifo.r_pnt <= (others => '0');
-      elsif (fifo.re = '1') then
-        fifo.r_pnt <= std_ulogic_vector(unsigned(fifo.r_pnt) + 1);
+      else
+        -- write port --
+        if (clear_i = '1') then
+          fifo.w_pnt <= (others => '0');
+        elsif (fifo.we = '1') then
+          fifo.w_pnt <= std_ulogic_vector(unsigned(fifo.w_pnt) + 1);
+        end if;
+        -- read port --
+        if (clear_i = '1') then
+          fifo.r_pnt <= (others => '0');
+        elsif (fifo.re = '1') then
+          fifo.r_pnt <= std_ulogic_vector(unsigned(fifo.r_pnt) + 1);
+        end if;
       end if;
     end if;
   end process fifo_pointers;

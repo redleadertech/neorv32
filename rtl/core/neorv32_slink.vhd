@@ -136,7 +136,7 @@ architecture neorv32_slink_rtl of neorv32_slink is
     rdata : fifo_data_t;
     wdata : fifo_data_t;
   end record;
-  signal rx_fifo, tx_fifo: fifo_t; 
+  signal rx_fifo, tx_fifo: fifo_t;
 
   -- link select --
   signal link_sel : std_ulogic_vector(7 downto 0);
@@ -173,73 +173,73 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      enable       <= '0';
-      irq_rx_mode  <= (others => '0');
-      irq_tx_mode  <= (others => '0');
-      tx_fifo_last <= (others => '0');
-      ack_o        <= '-';
-      data_o       <= (others => '-');
-    elsif rising_edge(clk_i) then
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        enable       <= '0';
+        irq_rx_mode  <= (others => '0');
+        irq_tx_mode  <= (others => '0');
+        tx_fifo_last <= (others => '0');
+        ack_o        <= '-';
+        data_o       <= (others => '-');
+      else
+        -- bus access acknowledge --
+        ack_o <= rden or wren;
 
-      -- bus access acknowledge --
-      ack_o <= rden or wren;
+        -- write access (control registers) --
+        if (wren = '1') then
+          if (addr = slink_ctrl_c) then -- control register
+            enable <= data_i(ctrl_en_c);
+          end if;
+          if (addr = slink_irq_c) then -- interrupt configuration register
+            irq_rx_mode <= data_i(irq_rx_mode_msb_c downto irq_rx_mode_lsb_c);
+            irq_tx_mode <= data_i(irq_tx_mode_msb_c downto irq_tx_mode_lsb_c);
+          end if;
+          if (addr = slink_tx_status_c) then -- TX link status (end-of-packet)
+            tx_fifo_last <= data_i(status_last_msb_c downto status_last_lsb_c);
+          end if;
+        end if;
 
-      -- write access (control registers) --
-      if (wren = '1') then
-        if (addr = slink_ctrl_c) then -- control register
-          enable <= data_i(ctrl_en_c);
-        end if;
-        if (addr = slink_irq_c) then -- interrupt configuration register
-          irq_rx_mode <= data_i(irq_rx_mode_msb_c downto irq_rx_mode_lsb_c);
-          irq_tx_mode <= data_i(irq_tx_mode_msb_c downto irq_tx_mode_lsb_c);
-        end if;
-        if (addr = slink_tx_status_c) then -- TX link status (end-of-packet)
-          tx_fifo_last <= data_i(status_last_msb_c downto status_last_lsb_c);
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          case addr is
+            when slink_ctrl_c => -- control register
+              data_o(ctrl_en_c) <= enable;
+              data_o(ctrl_rx_num_msb_c  downto ctrl_rx_num_lsb_c)  <= std_ulogic_vector(to_unsigned(SLINK_NUM_RX, 4));
+              data_o(ctrl_tx_num_msb_c  downto ctrl_tx_num_lsb_c)  <= std_ulogic_vector(to_unsigned(SLINK_NUM_TX, 4));
+              data_o(ctrl_rx_size_msb_c downto ctrl_rx_size_lsb_c) <= std_ulogic_vector(to_unsigned(index_size_f(SLINK_RX_FIFO), 4));
+              data_o(ctrl_tx_size_msb_c downto ctrl_tx_size_lsb_c) <= std_ulogic_vector(to_unsigned(index_size_f(SLINK_TX_FIFO), 4));
+            when slink_irq_c => -- interrupt configuration register
+              data_o((SLINK_NUM_RX+irq_rx_mode_lsb_c)-1 downto irq_rx_mode_lsb_c) <= irq_rx_mode(SLINK_NUM_RX-1 downto 0);
+              data_o((SLINK_NUM_TX+irq_tx_mode_lsb_c)-1 downto irq_tx_mode_lsb_c) <= irq_tx_mode(SLINK_NUM_TX-1 downto 0);
+            when slink_rx_status_c => -- RX status register
+              for i in 0 to SLINK_NUM_RX-1 loop
+                data_o(status_empty_lsb_c + i) <= not rx_fifo.avail(i);
+                data_o(status_half_lsb_c  + i) <= rx_fifo.half(i);
+                data_o(status_full_lsb_c  + i) <= not rx_fifo.free(i);
+                data_o(status_last_lsb_c  + i) <= rx_fifo.rlast(i);
+              end loop;
+            when slink_tx_status_c => -- TX link status register
+              for i in 0 to SLINK_NUM_TX-1 loop
+                data_o(status_empty_lsb_c + i) <= not tx_fifo.avail(i);
+                data_o(status_half_lsb_c  + i) <= tx_fifo.half(i);
+                data_o(status_full_lsb_c  + i) <= not tx_fifo.free(i);
+                data_o(status_last_lsb_c  + i) <= tx_fifo_last(i); -- from register!
+              end loop;
+            when slink_link0_c => data_o <= rx_fifo.rdata(0); -- RX link 0 data
+            when slink_link1_c => data_o <= rx_fifo.rdata(1); -- RX link 1 data
+            when slink_link2_c => data_o <= rx_fifo.rdata(2); -- RX link 2 data
+            when slink_link3_c => data_o <= rx_fifo.rdata(3); -- RX link 3 data
+            when slink_link4_c => data_o <= rx_fifo.rdata(4); -- RX link 4 data
+            when slink_link5_c => data_o <= rx_fifo.rdata(5); -- RX link 5 data
+            when slink_link6_c => data_o <= rx_fifo.rdata(6); -- RX link 6 data
+            when slink_link7_c => data_o <= rx_fifo.rdata(7); -- RX link 7 data
+            when others => data_o <= (others => '0');
+          end case;
         end if;
       end if;
-
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr is
-          when slink_ctrl_c => -- control register
-            data_o(ctrl_en_c) <= enable;
-            data_o(ctrl_rx_num_msb_c  downto ctrl_rx_num_lsb_c)  <= std_ulogic_vector(to_unsigned(SLINK_NUM_RX, 4));
-            data_o(ctrl_tx_num_msb_c  downto ctrl_tx_num_lsb_c)  <= std_ulogic_vector(to_unsigned(SLINK_NUM_TX, 4));
-            data_o(ctrl_rx_size_msb_c downto ctrl_rx_size_lsb_c) <= std_ulogic_vector(to_unsigned(index_size_f(SLINK_RX_FIFO), 4));
-            data_o(ctrl_tx_size_msb_c downto ctrl_tx_size_lsb_c) <= std_ulogic_vector(to_unsigned(index_size_f(SLINK_TX_FIFO), 4));
-          when slink_irq_c => -- interrupt configuration register
-            data_o((SLINK_NUM_RX+irq_rx_mode_lsb_c)-1 downto irq_rx_mode_lsb_c) <= irq_rx_mode(SLINK_NUM_RX-1 downto 0);
-            data_o((SLINK_NUM_TX+irq_tx_mode_lsb_c)-1 downto irq_tx_mode_lsb_c) <= irq_tx_mode(SLINK_NUM_TX-1 downto 0);
-          when slink_rx_status_c => -- RX status register
-             for i in 0 to SLINK_NUM_RX-1 loop
-              data_o(status_empty_lsb_c + i) <= not rx_fifo.avail(i);
-              data_o(status_half_lsb_c  + i) <= rx_fifo.half(i);
-              data_o(status_full_lsb_c  + i) <= not rx_fifo.free(i);
-              data_o(status_last_lsb_c  + i) <= rx_fifo.rlast(i);
-            end loop;
-          when slink_tx_status_c => -- TX link status register
-            for i in 0 to SLINK_NUM_TX-1 loop
-              data_o(status_empty_lsb_c + i) <= not tx_fifo.avail(i);
-              data_o(status_half_lsb_c  + i) <= tx_fifo.half(i);
-              data_o(status_full_lsb_c  + i) <= not tx_fifo.free(i);
-              data_o(status_last_lsb_c  + i) <= tx_fifo_last(i); -- from register!
-            end loop;
-          when slink_link0_c => data_o <= rx_fifo.rdata(0); -- RX link 0 data
-          when slink_link1_c => data_o <= rx_fifo.rdata(1); -- RX link 1 data
-          when slink_link2_c => data_o <= rx_fifo.rdata(2); -- RX link 2 data
-          when slink_link3_c => data_o <= rx_fifo.rdata(3); -- RX link 3 data
-          when slink_link4_c => data_o <= rx_fifo.rdata(4); -- RX link 4 data
-          when slink_link5_c => data_o <= rx_fifo.rdata(5); -- RX link 5 data
-          when slink_link6_c => data_o <= rx_fifo.rdata(6); -- RX link 6 data
-          when slink_link7_c => data_o <= rx_fifo.rdata(7); -- RX link 7 data
-          when others => data_o <= (others => '0');
-        end case;
-      end if;
-
     end if;
   end process rw_access;
 
@@ -350,7 +350,7 @@ begin
       rdata_o(32)          => rx_fifo.rlast(i), -- end of packet
       avail_o              => rx_fifo.avail(i)  -- data available when set
     );
-  
+
     -- stream link interface --
     rx_fifo.wdata(i)  <= slink_rx_dat_i(i);
     rx_fifo.we(i)     <= slink_rx_val_i(i);
@@ -408,7 +408,7 @@ begin
       irq_tx_o <= enable and or_reduce_f(tx_irq.fire);
     end if;
   end process irq_generator;
-  
+
   -- edge detector --
   irq_detect: process(rx_irq.trigger, tx_irq.trigger)
   begin

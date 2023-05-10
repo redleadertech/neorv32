@@ -2,7 +2,7 @@
 -- # << NEORV32 - RISC-V-Compatible Debug Module (DM) >>                                           #
 -- # ********************************************************************************************* #
 -- # Compatible to the "Minimal RISC-V External Debug Spec. Version 0.13.2"                        #
--- # -> "Execution-based" debugging scheme                                                         # 
+-- # -> "Execution-based" debugging scheme                                                         #
 -- # ********************************************************************************************* #
 -- # Key features:                                                                                 #
 -- # * register access commands only                                                               #
@@ -408,98 +408,99 @@ begin
 
   -- Debug Module Interface - Write Access --------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  dmi_write_access: process(rstn_i, clk_i)
+  dmi_write_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      dm_reg.dmcontrol_ndmreset <= '0';
-      dm_reg.dmcontrol_dmactive <= '0'; -- DM is in reset state after hardware reset
-      --
-      dm_reg.abstractauto_autoexecdata    <= '0';
-      dm_reg.abstractauto_autoexecprogbuf <= "00";
-      --
-      dm_reg.command <= (others => '0');
-      dm_reg.progbuf <= (others => instr_nop_c);
-      --
-      dm_reg.halt_req    <= '0';
-      dm_reg.resume_req  <= '0';
-      dm_reg.reset_ack   <= '0';
-      dm_reg.wr_acc_err  <= '0';
-      dm_reg.clr_acc_err <= '0';
-      dm_reg.autoexec_wr <= '0';
-    elsif rising_edge(clk_i) then
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        dm_reg.dmcontrol_ndmreset <= '0';
+        dm_reg.dmcontrol_dmactive <= '0'; -- DM is in reset state after hardware reset
+        --
+        dm_reg.abstractauto_autoexecdata    <= '0';
+        dm_reg.abstractauto_autoexecprogbuf <= "00";
+        --
+        dm_reg.command <= (others => '0');
+        dm_reg.progbuf <= (others => instr_nop_c);
+        --
+        dm_reg.halt_req    <= '0';
+        dm_reg.resume_req  <= '0';
+        dm_reg.reset_ack   <= '0';
+        dm_reg.wr_acc_err  <= '0';
+        dm_reg.clr_acc_err <= '0';
+        dm_reg.autoexec_wr <= '0';
+      else
+        -- default --
+        dm_reg.resume_req  <= '0';
+        dm_reg.reset_ack   <= '0';
+        dm_reg.wr_acc_err  <= '0';
+        dm_reg.clr_acc_err <= '0';
+        dm_reg.autoexec_wr <= '0';
 
-      -- default --
-      dm_reg.resume_req  <= '0';
-      dm_reg.reset_ack   <= '0';
-      dm_reg.wr_acc_err  <= '0';
-      dm_reg.clr_acc_err <= '0';
-      dm_reg.autoexec_wr <= '0';
+        -- DMI access --
+        if (dmi_req_valid_i = '1') and (dmi_req_op_i = '1') then -- valid DMI write request
 
-      -- DMI access --
-      if (dmi_req_valid_i = '1') and (dmi_req_op_i = '1') then -- valid DMI write request
-
-        -- debug module control --
-        if (dmi_req_addr_i = addr_dmcontrol_c) then
-          dm_reg.halt_req           <= dmi_req_data_i(31); -- haltreq (-/w): write 1 to request halt; has to be cleared again by debugger
-          dm_reg.resume_req         <= dmi_req_data_i(30); -- resumereq (-/w1): write 1 to request resume
-          dm_reg.reset_ack          <= dmi_req_data_i(28); -- ackhavereset (-/w1)
-          dm_reg.dmcontrol_ndmreset <= dmi_req_data_i(01); -- ndmreset (r/w): soc reset
-          dm_reg.dmcontrol_dmactive <= dmi_req_data_i(00); -- dmactive (r/w): DM reset
-        end if;
-
-        -- write abstract command --
-        if (dmi_req_addr_i = addr_command_c) then
-          if (dm_ctrl.busy = '0') and (dm_ctrl.cmderr = "000") then -- idle and no errors yet
-            dm_reg.command <= dmi_req_data_i;
+          -- debug module control --
+          if (dmi_req_addr_i = addr_dmcontrol_c) then
+            dm_reg.halt_req           <= dmi_req_data_i(31); -- haltreq (-/w): write 1 to request halt; has to be cleared again by debugger
+            dm_reg.resume_req         <= dmi_req_data_i(30); -- resumereq (-/w1): write 1 to request resume
+            dm_reg.reset_ack          <= dmi_req_data_i(28); -- ackhavereset (-/w1)
+            dm_reg.dmcontrol_ndmreset <= dmi_req_data_i(01); -- ndmreset (r/w): soc reset
+            dm_reg.dmcontrol_dmactive <= dmi_req_data_i(00); -- dmactive (r/w): DM reset
           end if;
-        end if;
 
-        -- write abstract command autoexec --
-        if (dmi_req_addr_i = addr_abstractauto_c) then
-          if (dm_ctrl.busy = '0') then -- idle and no errors yet
-            dm_reg.abstractauto_autoexecdata       <= dmi_req_data_i(00);
-            dm_reg.abstractauto_autoexecprogbuf(0) <= dmi_req_data_i(16);
-            dm_reg.abstractauto_autoexecprogbuf(1) <= dmi_req_data_i(17);
-          end if;
-        end if;
-
-        -- auto execution trigger --
-        if ((dmi_req_addr_i = addr_data0_c)    and (dm_reg.abstractauto_autoexecdata = '1')) or
-           ((dmi_req_addr_i = addr_progbuf0_c) and (dm_reg.abstractauto_autoexecprogbuf(0) = '1')) or
-           ((dmi_req_addr_i = addr_progbuf1_c) and (dm_reg.abstractauto_autoexecprogbuf(1) = '1')) then
-          dm_reg.autoexec_wr <= '1';
-        end if;
-
-        -- acknowledge command error --
-        if (dmi_req_addr_i = addr_abstractcs_c) then
-          if (dmi_req_data_i(10 downto 8) = "111") then
-            dm_reg.clr_acc_err <= '1';
-          end if;
-        end if;
-
-        -- write program buffer --
-        if (dmi_req_addr_i(dmi_req_addr_i'left downto 1) = addr_progbuf0_c(dmi_req_addr_i'left downto 1)) then
-          if (dm_ctrl.busy = '0') then -- idle
-            if (dmi_req_addr_i(0) = addr_progbuf0_c(0)) then
-              dm_reg.progbuf(0) <= dmi_req_data_i;
-            else
-              dm_reg.progbuf(1) <= dmi_req_data_i;
+          -- write abstract command --
+          if (dmi_req_addr_i = addr_command_c) then
+            if (dm_ctrl.busy = '0') and (dm_ctrl.cmderr = "000") then -- idle and no errors yet
+              dm_reg.command <= dmi_req_data_i;
             end if;
           end if;
-        end if;
 
-        -- invalid access (while command is executing) --
-        if (dm_ctrl.busy = '1') then -- busy
-          if (dmi_req_addr_i = addr_abstractcs_c) or
-             (dmi_req_addr_i = addr_command_c) or
-             (dmi_req_addr_i = addr_abstractauto_c) or
-             (dmi_req_addr_i = addr_data0_c) or
-             (dmi_req_addr_i = addr_progbuf0_c) or
-             (dmi_req_addr_i = addr_progbuf1_c) then
-            dm_reg.wr_acc_err <= '1';
+          -- write abstract command autoexec --
+          if (dmi_req_addr_i = addr_abstractauto_c) then
+            if (dm_ctrl.busy = '0') then -- idle and no errors yet
+              dm_reg.abstractauto_autoexecdata       <= dmi_req_data_i(00);
+              dm_reg.abstractauto_autoexecprogbuf(0) <= dmi_req_data_i(16);
+              dm_reg.abstractauto_autoexecprogbuf(1) <= dmi_req_data_i(17);
+            end if;
           end if;
-        end if;
 
+          -- auto execution trigger --
+          if ((dmi_req_addr_i = addr_data0_c)    and (dm_reg.abstractauto_autoexecdata = '1')) or
+            ((dmi_req_addr_i = addr_progbuf0_c) and (dm_reg.abstractauto_autoexecprogbuf(0) = '1')) or
+            ((dmi_req_addr_i = addr_progbuf1_c) and (dm_reg.abstractauto_autoexecprogbuf(1) = '1')) then
+            dm_reg.autoexec_wr <= '1';
+          end if;
+
+          -- acknowledge command error --
+          if (dmi_req_addr_i = addr_abstractcs_c) then
+            if (dmi_req_data_i(10 downto 8) = "111") then
+              dm_reg.clr_acc_err <= '1';
+            end if;
+          end if;
+
+          -- write program buffer --
+          if (dmi_req_addr_i(dmi_req_addr_i'left downto 1) = addr_progbuf0_c(dmi_req_addr_i'left downto 1)) then
+            if (dm_ctrl.busy = '0') then -- idle
+              if (dmi_req_addr_i(0) = addr_progbuf0_c(0)) then
+                dm_reg.progbuf(0) <= dmi_req_data_i;
+              else
+                dm_reg.progbuf(1) <= dmi_req_data_i;
+              end if;
+            end if;
+          end if;
+
+          -- invalid access (while command is executing) --
+          if (dm_ctrl.busy = '1') then -- busy
+            if (dmi_req_addr_i = addr_abstractcs_c) or
+              (dmi_req_addr_i = addr_command_c) or
+              (dmi_req_addr_i = addr_abstractauto_c) or
+              (dmi_req_addr_i = addr_data0_c) or
+              (dmi_req_addr_i = addr_progbuf0_c) or
+              (dmi_req_addr_i = addr_progbuf1_c) then
+              dm_reg.wr_acc_err <= '1';
+            end if;
+          end if;
+
+        end if;
       end if;
     end if;
   end process dmi_write_access;

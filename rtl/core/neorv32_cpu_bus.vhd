@@ -134,19 +134,21 @@ begin
 
   -- Access Address -------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  mem_adr_reg: process(rstn_i, clk_i)
+  mem_adr_reg: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      mar        <= (others => def_rst_val_c);
-      misaligned <= '0';
-    elsif rising_edge(clk_i) then
-      if (ctrl_i(ctrl_bus_mo_we_c) = '1') then
-        mar <= addr_i; -- memory address register
-        case ctrl_i(ctrl_ir_funct3_1_c downto ctrl_ir_funct3_0_c) is -- alignment check
-          when "00"   => misaligned <= '0'; -- byte
-          when "01"   => misaligned <= addr_i(0); -- half-word
-          when others => misaligned <= addr_i(1) or addr_i(0); -- word
-        end case;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        mar        <= (others => def_rst_val_c);
+        misaligned <= '0';
+      else
+        if (ctrl_i(ctrl_bus_mo_we_c) = '1') then
+          mar <= addr_i; -- memory address register
+          case ctrl_i(ctrl_ir_funct3_1_c downto ctrl_ir_funct3_0_c) is -- alignment check
+            when "00"   => misaligned <= '0'; -- byte
+            when "01"   => misaligned <= addr_i(0); -- half-word
+            when others => misaligned <= addr_i(1) or addr_i(0); -- word
+          end case;
+        end if;
       end if;
     end if;
   end process mem_adr_reg;
@@ -158,38 +160,40 @@ begin
 
   -- Write Data -----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  mem_do_reg: process(rstn_i, clk_i)
+  mem_do_reg: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      d_bus_wdata_o <= (others => def_rst_val_c);
-      d_bus_ben_o   <= (others => def_rst_val_c);
-    elsif rising_edge(clk_i) then
-      if (ctrl_i(ctrl_bus_mo_we_c) = '1') then
-        -- byte enable and data alignment --
-        case ctrl_i(ctrl_ir_funct3_1_c downto ctrl_ir_funct3_0_c) is -- data size
-          when "00" => -- byte
-            d_bus_wdata_o(07 downto 00) <= wdata_i(7 downto 0);
-            d_bus_wdata_o(15 downto 08) <= wdata_i(7 downto 0);
-            d_bus_wdata_o(23 downto 16) <= wdata_i(7 downto 0);
-            d_bus_wdata_o(31 downto 24) <= wdata_i(7 downto 0);
-            case addr_i(1 downto 0) is
-              when "00"   => d_bus_ben_o <= "0001";
-              when "01"   => d_bus_ben_o <= "0010";
-              when "10"   => d_bus_ben_o <= "0100";
-              when others => d_bus_ben_o <= "1000";
-            end case;
-          when "01" => -- half-word
-            d_bus_wdata_o(31 downto 16) <= wdata_i(15 downto 0);
-            d_bus_wdata_o(15 downto 00) <= wdata_i(15 downto 0);
-            if (addr_i(1) = '0') then
-              d_bus_ben_o <= "0011"; -- low half-word
-            else
-              d_bus_ben_o <= "1100"; -- high half-word
-            end if;
-          when others => -- word
-            d_bus_wdata_o <= wdata_i;
-            d_bus_ben_o   <= "1111"; -- full word
-        end case;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        d_bus_wdata_o <= (others => def_rst_val_c);
+        d_bus_ben_o   <= (others => def_rst_val_c);
+      else
+        if (ctrl_i(ctrl_bus_mo_we_c) = '1') then
+          -- byte enable and data alignment --
+          case ctrl_i(ctrl_ir_funct3_1_c downto ctrl_ir_funct3_0_c) is -- data size
+            when "00" => -- byte
+              d_bus_wdata_o(07 downto 00) <= wdata_i(7 downto 0);
+              d_bus_wdata_o(15 downto 08) <= wdata_i(7 downto 0);
+              d_bus_wdata_o(23 downto 16) <= wdata_i(7 downto 0);
+              d_bus_wdata_o(31 downto 24) <= wdata_i(7 downto 0);
+              case addr_i(1 downto 0) is
+                when "00"   => d_bus_ben_o <= "0001";
+                when "01"   => d_bus_ben_o <= "0010";
+                when "10"   => d_bus_ben_o <= "0100";
+                when others => d_bus_ben_o <= "1000";
+              end case;
+            when "01" => -- half-word
+              d_bus_wdata_o(31 downto 16) <= wdata_i(15 downto 0);
+              d_bus_wdata_o(15 downto 00) <= wdata_i(15 downto 0);
+              if (addr_i(1) = '0') then
+                d_bus_ben_o <= "0011"; -- low half-word
+              else
+                d_bus_ben_o <= "1100"; -- high half-word
+              end if;
+            when others => -- word
+              d_bus_wdata_o <= wdata_i;
+              d_bus_ben_o   <= "1111"; -- full word
+          end case;
+        end if;
       end if;
     end if;
   end process mem_do_reg;
@@ -197,39 +201,41 @@ begin
 
   -- Read Data ------------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  read_align: process(rstn_i, clk_i)
+  read_align: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      rdata_o <= (others => def_rst_val_c);
-    elsif rising_edge(clk_i) then
-      -- input data alignment and sign extension --
-      case ctrl_i(ctrl_ir_funct3_1_c downto ctrl_ir_funct3_0_c) is
-        when "00" => -- byte
-          case mar(1 downto 0) is
-            when "00" => -- byte 0
-              rdata_o(07 downto 00) <= d_bus_rdata_i(07 downto 00);
-              rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(07))); -- sign extension
-            when "01" => -- byte 1
-              rdata_o(07 downto 00) <= d_bus_rdata_i(15 downto 08);
-              rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(15))); -- sign extension
-            when "10" => -- byte 2
-              rdata_o(07 downto 00) <= d_bus_rdata_i(23 downto 16);
-              rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(23))); -- sign extension
-            when others => -- byte 3
-              rdata_o(07 downto 00) <= d_bus_rdata_i(31 downto 24);
-              rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(31))); -- sign extension
-          end case;
-        when "01" => -- half-word
-          if (mar(1) = '0') then
-            rdata_o(15 downto 00) <= d_bus_rdata_i(15 downto 00); -- low half-word
-            rdata_o(31 downto 16) <= (others => (data_sign and d_bus_rdata_i(15))); -- sign extension
-          else
-            rdata_o(15 downto 00) <= d_bus_rdata_i(31 downto 16); -- high half-word
-            rdata_o(31 downto 16) <= (others => (data_sign and d_bus_rdata_i(31))); -- sign extension
-          end if;
-        when others => -- word
-          rdata_o <= d_bus_rdata_i; -- full word
-      end case;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        rdata_o <= (others => def_rst_val_c);
+      else
+        -- input data alignment and sign extension --
+        case ctrl_i(ctrl_ir_funct3_1_c downto ctrl_ir_funct3_0_c) is
+          when "00" => -- byte
+            case mar(1 downto 0) is
+              when "00" => -- byte 0
+                rdata_o(07 downto 00) <= d_bus_rdata_i(07 downto 00);
+                rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(07))); -- sign extension
+              when "01" => -- byte 1
+                rdata_o(07 downto 00) <= d_bus_rdata_i(15 downto 08);
+                rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(15))); -- sign extension
+              when "10" => -- byte 2
+                rdata_o(07 downto 00) <= d_bus_rdata_i(23 downto 16);
+                rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(23))); -- sign extension
+              when others => -- byte 3
+                rdata_o(07 downto 00) <= d_bus_rdata_i(31 downto 24);
+                rdata_o(31 downto 08) <= (others => (data_sign and d_bus_rdata_i(31))); -- sign extension
+            end case;
+          when "01" => -- half-word
+            if (mar(1) = '0') then
+              rdata_o(15 downto 00) <= d_bus_rdata_i(15 downto 00); -- low half-word
+              rdata_o(31 downto 16) <= (others => (data_sign and d_bus_rdata_i(15))); -- sign extension
+            else
+              rdata_o(15 downto 00) <= d_bus_rdata_i(31 downto 16); -- high half-word
+              rdata_o(31 downto 16) <= (others => (data_sign and d_bus_rdata_i(31))); -- sign extension
+            end if;
+          when others => -- word
+            rdata_o <= d_bus_rdata_i; -- full word
+        end case;
+      end if;
     end if;
   end process read_align;
 
@@ -239,31 +245,33 @@ begin
 
   -- Access Arbiter -------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  data_access_arbiter: process(rstn_i, clk_i)
+  data_access_arbiter: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      arbiter.pend      <= '0';
-      arbiter.err       <= '0';
-      arbiter.pmp_r_err <= '-';
-      arbiter.pmp_w_err <= '-';
-    elsif rising_edge(clk_i) then
-      arbiter.pmp_r_err <= ld_pmp_fault;
-      arbiter.pmp_w_err <= st_pmp_fault;
-      if (arbiter.pend = '0') then -- idle
-        if (ctrl_i(ctrl_bus_req_c) = '1') then -- start bus access
-          arbiter.pend <= '1';
-        end if;
-        arbiter.err <= '0';
-      else -- bus access in progress
-        -- accumulate bus errors --
-        if (d_bus_err_i = '1') or -- bus error
-           ((ctrl_i(ctrl_ir_opcode7_5_c) = '1') and (arbiter.pmp_w_err = '1')) or -- PMP store fault
-           ((ctrl_i(ctrl_ir_opcode7_5_c) = '0') and (arbiter.pmp_r_err = '1')) then -- PMP load fault
-          arbiter.err <= '1';
-        end if;
-        -- wait for normal termination or start of trap handling --
-        if (d_bus_ack_i = '1') or (ctrl_i(ctrl_trap_c) = '1') then
-          arbiter.pend <= '0';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        arbiter.pend      <= '0';
+        arbiter.err       <= '0';
+        arbiter.pmp_r_err <= '-';
+        arbiter.pmp_w_err <= '-';
+      else
+        arbiter.pmp_r_err <= ld_pmp_fault;
+        arbiter.pmp_w_err <= st_pmp_fault;
+        if (arbiter.pend = '0') then -- idle
+          if (ctrl_i(ctrl_bus_req_c) = '1') then -- start bus access
+            arbiter.pend <= '1';
+          end if;
+          arbiter.err <= '0';
+        else -- bus access in progress
+          -- accumulate bus errors --
+          if (d_bus_err_i = '1') or -- bus error
+            ((ctrl_i(ctrl_ir_opcode7_5_c) = '1') and (arbiter.pmp_w_err = '1')) or -- PMP store fault
+            ((ctrl_i(ctrl_ir_opcode7_5_c) = '0') and (arbiter.pmp_r_err = '1')) then -- PMP load fault
+            arbiter.err <= '1';
+          end if;
+          -- wait for normal termination or start of trap handling --
+          if (d_bus_ack_i = '1') or (ctrl_i(ctrl_trap_c) = '1') then
+            arbiter.pend <= '0';
+          end if;
         end if;
       end if;
     end if;

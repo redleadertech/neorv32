@@ -9,7 +9,7 @@
 -- #                                                                                               #
 -- # The Wishbone gateway registers all outgoing signals. These signals will remain stable (gated) #
 -- # if there is no active Wishbone access. By default, also the incoming signals are registered,  #
--- # too. this can be disabled by setting ASYNC_RX = false.                                        # 
+-- # too. this can be disabled by setting ASYNC_RX = false.                                        #
 -- #                                                                                               #
 -- # Even when all processor-internal memories and IO devices are disabled, the EXTERNAL address   #
 -- # space ENDS at address 0xffff0000 (begin of internal BOOTROM/OCD/IO address space).            #
@@ -174,61 +174,63 @@ begin
 
   -- Bus Arbiter -----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  bus_arbiter: process(rstn_i, clk_i)
+  bus_arbiter: process(, clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl.state    <= '0';
-      ctrl.state_ff <= '0';
-      ctrl.we       <= '0';
-      ctrl.adr      <= (others => '0');
-      ctrl.wdat     <= (others => '0');
-      ctrl.rdat     <= (others => '-');
-      ctrl.sel      <= (others => '0');
-      ctrl.timeout  <= (others => '-');
-      ctrl.ack      <= '-';
-      ctrl.err      <= '-';
-      ctrl.tmo      <= '0';
-      ctrl.src      <= '0';
-      ctrl.priv     <= '0';
-    elsif rising_edge(clk_i) then
-      -- defaults --
-      ctrl.state_ff <= ctrl.state;
-      ctrl.rdat     <= (others => '0'); -- required for internal output gating
-      ctrl.ack      <= '0';
-      ctrl.err      <= '0';
-      ctrl.tmo      <= '0';
-      ctrl.timeout  <= std_ulogic_vector(to_unsigned(BUS_TIMEOUT, index_size_f(BUS_TIMEOUT)+1));
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl.state    <= '0';
+        ctrl.state_ff <= '0';
+        ctrl.we       <= '0';
+        ctrl.adr      <= (others => '0');
+        ctrl.wdat     <= (others => '0');
+        ctrl.rdat     <= (others => '-');
+        ctrl.sel      <= (others => '0');
+        ctrl.timeout  <= (others => '-');
+        ctrl.ack      <= '-';
+        ctrl.err      <= '-';
+        ctrl.tmo      <= '0';
+        ctrl.src      <= '0';
+        ctrl.priv     <= '0';
+      else
+        -- defaults --
+        ctrl.state_ff <= ctrl.state;
+        ctrl.rdat     <= (others => '0'); -- required for internal output gating
+        ctrl.ack      <= '0';
+        ctrl.err      <= '0';
+        ctrl.tmo      <= '0';
+        ctrl.timeout  <= std_ulogic_vector(to_unsigned(BUS_TIMEOUT, index_size_f(BUS_TIMEOUT)+1));
 
-      -- state machine --
-      if (ctrl.state = '0') then -- IDLE, waiting for host request
-        -- ------------------------------------------------------------
-        if (xbus_access = '1') and ((wren_i or rden_i) = '1') then -- valid external request
-          -- buffer (and gate) all outgoing signals --
-          ctrl.we    <= wren_i;
-          ctrl.adr   <= addr_i;
-          ctrl.src   <= src_i;
-          ctrl.priv  <= priv_i;
-          ctrl.wdat  <= end_wdata;
-          ctrl.sel   <= end_byteen;
-          ctrl.state <= '1';
-        end if;
+        -- state machine --
+        if (ctrl.state = '0') then -- IDLE, waiting for host request
+          -- ------------------------------------------------------------
+          if (xbus_access = '1') and ((wren_i or rden_i) = '1') then -- valid external request
+            -- buffer (and gate) all outgoing signals --
+            ctrl.we    <= wren_i;
+            ctrl.adr   <= addr_i;
+            ctrl.src   <= src_i;
+            ctrl.priv  <= priv_i;
+            ctrl.wdat  <= end_wdata;
+            ctrl.sel   <= end_byteen;
+            ctrl.state <= '1';
+          end if;
 
-      else -- BUSY, transfer in progress
-        -- ------------------------------------------------------------
-        ctrl.rdat <= wb_dat_i;
-        if (wb_err_i = '1') then -- abnormal bus termination
-          ctrl.err   <= '1';
-          ctrl.state <= '0';
-        elsif (timeout_en_c = true) and (or_reduce_f(ctrl.timeout) = '0') then -- enabled timeout
-          ctrl.tmo   <= '1';
-          ctrl.state <= '0';
-        elsif (wb_ack_i = '1') then -- normal bus termination
-          ctrl.ack   <= '1';
-          ctrl.state <= '0';
-        end if;
-        -- timeout counter --
-        if (timeout_en_c = true) then
-          ctrl.timeout <= std_ulogic_vector(unsigned(ctrl.timeout) - 1); -- timeout counter
+        else -- BUSY, transfer in progress
+          -- ------------------------------------------------------------
+          ctrl.rdat <= wb_dat_i;
+          if (wb_err_i = '1') then -- abnormal bus termination
+            ctrl.err   <= '1';
+            ctrl.state <= '0';
+          elsif (timeout_en_c = true) and (or_reduce_f(ctrl.timeout) = '0') then -- enabled timeout
+            ctrl.tmo   <= '1';
+            ctrl.state <= '0';
+          elsif (wb_ack_i = '1') then -- normal bus termination
+            ctrl.ack   <= '1';
+            ctrl.state <= '0';
+          end if;
+          -- timeout counter --
+          if (timeout_en_c = true) then
+            ctrl.timeout <= std_ulogic_vector(unsigned(ctrl.timeout) - 1); -- timeout counter
+          end if;
         end if;
       end if;
     end if;

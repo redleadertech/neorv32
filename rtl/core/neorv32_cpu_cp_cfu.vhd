@@ -48,7 +48,7 @@ entity neorv32_cpu_cp_cfu is
   port (
     -- global control --
     clk_i   : in  std_ulogic; -- global clock, rising edge
-    rstn_i  : in  std_ulogic; -- global reset, low-active, async
+    rstn_i  : in  std_ulogic; -- global reset, low-active, sync
     ctrl_i  : in  std_ulogic_vector(ctrl_width_c-1 downto 0); -- main control bus
     start_i : in  std_ulogic; -- trigger operation
     -- data input --
@@ -80,21 +80,23 @@ begin
 
   -- CFU Controller -------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  cfu_control: process(rstn_i, clk_i)
+  cfu_control: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      res_o <= (others => '-'); -- no actual reset required
-      control.busy <= '0';
-    elsif rising_edge(clk_i) then
-      res_o <= (others => '0'); -- default; all CPU co-processor outputs are logically OR-ed
-      if (control.busy = '0') then -- idle
-        if (start_i = '1') then
-          control.busy <= '1';
-        end if;
-      else -- busy
-        if (control.done = '1') or (ctrl_i(ctrl_trap_c) = '1') then -- processing done? abort if trap (exception)
-          res_o <= control.result; -- output result for just one cycle, CFU output has to be all-zero otherwise
-          control.busy <= '0';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        res_o <= (others => '-'); -- no actual reset required
+        control.busy <= '0';
+      else
+        res_o <= (others => '0'); -- default; all CPU co-processor outputs are logically OR-ed
+        if (control.busy = '0') then -- idle
+          if (start_i = '1') then
+            control.busy <= '1';
+          end if;
+        else -- busy
+          if (control.done = '1') or (ctrl_i(ctrl_trap_c) = '1') then -- processing done? abort if trap (exception)
+            res_o <= control.result; -- output result for just one cycle, CFU output has to be all-zero otherwise
+            control.busy <= '0';
+          end if;
         end if;
       end if;
     end if;

@@ -407,7 +407,7 @@ begin
   cond_sel_string_f(boolean(XIRQ_NUM_CH > 0), "XIRQ ", "") &
   cond_sel_string_f(IO_GPTMR_EN, "GPTMR ", "") &
   cond_sel_string_f(IO_XIP_EN, "XIP ", "") &
-  "" 
+  ""
   severity note;
 
 
@@ -445,45 +445,49 @@ begin
 
   -- Reset Generator ------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  reset_generator: process(rstn_i, clk_i)
+  reset_generator: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      rstn_ext_sreg <= (others => '0');
-      rstn_int_sreg <= (others => '0');
-      rstn_ext      <= '0';
-      rstn_int      <= '0';
-    elsif falling_edge(clk_i) then -- inverted clock to release reset _before_ all FFs trigger (rising edge)
-      -- external reset --
-      rstn_ext_sreg <= rstn_ext_sreg(rstn_ext_sreg'left-1 downto 0) & '1'; -- active for at least <rstn_ext_sreg'size> clock cycles
-      -- internal reset --
-      if (rstn_wdt = '0') or (dci_ndmrstn = '0') then -- sync reset sources
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        rstn_ext_sreg <= (others => '0');
         rstn_int_sreg <= (others => '0');
+        rstn_ext      <= '0';
+        rstn_int      <= '0';
       else
-        rstn_int_sreg <= rstn_int_sreg(rstn_int_sreg'left-1 downto 0) & '1'; -- active for at least <rstn_int_sreg'size> clock cycles
+        -- external reset --
+        rstn_ext_sreg <= rstn_ext_sreg(rstn_ext_sreg'left-1 downto 0) & '1'; -- active for at least <rstn_ext_sreg'size> clock cycles
+        -- internal reset --
+        if (rstn_wdt = '0') or (dci_ndmrstn = '0') then -- sync reset sources
+          rstn_int_sreg <= (others => '0');
+        else
+          rstn_int_sreg <= rstn_int_sreg(rstn_int_sreg'left-1 downto 0) & '1'; -- active for at least <rstn_int_sreg'size> clock cycles
+        end if;
+        -- reset nets --
+        rstn_ext <= and_reduce_f(rstn_ext_sreg); -- external reset (via reset pin)
+        rstn_int <= and_reduce_f(rstn_int_sreg); -- internal reset (via reset pin, WDT or OCD)
       end if;
-      -- reset nets --
-      rstn_ext <= and_reduce_f(rstn_ext_sreg); -- external reset (via reset pin)
-      rstn_int <= and_reduce_f(rstn_int_sreg); -- internal reset (via reset pin, WDT or OCD)
     end if;
   end process reset_generator;
 
 
   -- Clock Generator ------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  clock_generator: process(rstn_int, clk_i)
+  clock_generator: process(clk_i)
   begin
-    if (rstn_int = '0') then
-      clk_gen_en_ff <= '0';
-      clk_div       <= (others => '0');
-      clk_div_ff    <= (others => '0');
-    elsif rising_edge(clk_i) then
-      clk_gen_en_ff <= or_reduce_f(clk_gen_en);
-      if (clk_gen_en_ff = '1') then
-        clk_div <= std_ulogic_vector(unsigned(clk_div) + 1);
-      else -- reset if disabled
-        clk_div <= (others => '0');
+    if rising_edge(clk_i) then
+      if (rstn_int = '0') then
+        clk_gen_en_ff <= '0';
+        clk_div       <= (others => '0');
+        clk_div_ff    <= (others => '0');
+      else
+        clk_gen_en_ff <= or_reduce_f(clk_gen_en);
+        if (clk_gen_en_ff = '1') then
+          clk_div <= std_ulogic_vector(unsigned(clk_div) + 1);
+        else -- reset if disabled
+          clk_div <= (others => '0');
+        end if;
+        clk_div_ff <= clk_div;
       end if;
-      clk_div_ff <= clk_div;
     end if;
   end process clock_generator;
 

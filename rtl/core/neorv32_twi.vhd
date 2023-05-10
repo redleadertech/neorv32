@@ -146,37 +146,39 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl.enable <= '0';
-      ctrl.prsc   <= (others => '0');
-      ctrl.mack   <= '0';
-      ack_o       <= '-';
-      data_o      <= (others => '-');
-    elsif rising_edge(clk_i) then
-      ack_o <= rden or wren;
-      -- write access --
-      if (wren = '1') then
-        if (addr = twi_ctrl_addr_c) then
-          ctrl.enable <= data_i(ctrl_en_c);
-          ctrl.prsc   <= data_i(ctrl_prsc2_c downto ctrl_prsc0_c);
-          ctrl.mack   <= data_i(ctrl_mack_c);
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl.enable <= '0';
+        ctrl.prsc   <= (others => '0');
+        ctrl.mack   <= '0';
+        ack_o       <= '-';
+        data_o      <= (others => '-');
+      else
+        ack_o <= rden or wren;
+        -- write access --
+        if (wren = '1') then
+          if (addr = twi_ctrl_addr_c) then
+            ctrl.enable <= data_i(ctrl_en_c);
+            ctrl.prsc   <= data_i(ctrl_prsc2_c downto ctrl_prsc0_c);
+            ctrl.mack   <= data_i(ctrl_mack_c);
+          end if;
         end if;
-      end if;
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        if (addr = twi_ctrl_addr_c) then
-          data_o(ctrl_en_c)                        <= ctrl.enable;
-          data_o(ctrl_prsc2_c downto ctrl_prsc0_c) <= ctrl.prsc;
-          data_o(ctrl_mack_c)                      <= ctrl.mack;
-          --
-          data_o(ctrl_claimed_c) <= arbiter.claimed;
-          data_o(ctrl_ack_c)     <= not arbiter.rtx_sreg(0);
-          data_o(ctrl_busy_c)    <= arbiter.busy;
-        else -- twi_rtx_addr_c =>
-          data_o(7 downto 0) <= arbiter.rtx_sreg(8 downto 1);
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          if (addr = twi_ctrl_addr_c) then
+            data_o(ctrl_en_c)                        <= ctrl.enable;
+            data_o(ctrl_prsc2_c downto ctrl_prsc0_c) <= ctrl.prsc;
+            data_o(ctrl_mack_c)                      <= ctrl.mack;
+            --
+            data_o(ctrl_claimed_c) <= arbiter.claimed;
+            data_o(ctrl_ack_c)     <= not arbiter.rtx_sreg(0);
+            data_o(ctrl_busy_c)    <= arbiter.busy;
+          else -- twi_rtx_addr_c =>
+            data_o(7 downto 0) <= arbiter.rtx_sreg(8 downto 1);
+          end if;
         end if;
       end if;
     end if;

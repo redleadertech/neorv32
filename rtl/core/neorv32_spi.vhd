@@ -167,64 +167,66 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl   <= (others => '0');
-      ack_o  <= '-';
-      data_o <= (others => '-');
-    elsif rising_edge(clk_i) then
-      -- bus access acknowledge --
-      ack_o <= rden or wren;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl   <= (others => '0');
+        ack_o  <= '-';
+        data_o <= (others => '-');
+      else
+        -- bus access acknowledge --
+        ack_o <= rden or wren;
 
-      -- write access --
-      if (wren = '1') then
-        if (addr = spi_ctrl_addr_c) then -- control register
-          ctrl(ctrl_cs7_c downto ctrl_cs0_c)     <= data_i(ctrl_cs7_c downto ctrl_cs0_c);
-          ctrl(ctrl_en_c)                        <= data_i(ctrl_en_c);
-          ctrl(ctrl_cpha_c)                      <= data_i(ctrl_cpha_c);
-          ctrl(ctrl_prsc2_c downto ctrl_prsc0_c) <= data_i(ctrl_prsc2_c downto ctrl_prsc0_c);
-          ctrl(ctrl_size1_c downto ctrl_size0_c) <= data_i(ctrl_size1_c downto ctrl_size0_c);
-          ctrl(ctrl_cpol_c)                      <= data_i(ctrl_cpol_c);
-          ctrl(ctrl_highspeed_c)                 <= data_i(ctrl_highspeed_c);
-          if (IO_SPI_FIFO > 0) then -- FIFO implemented: all IRQ options available
-            ctrl(ctrl_irq1_c downto ctrl_irq0_c) <= data_i(ctrl_irq1_c downto ctrl_irq0_c);
-          else -- fall back: only the busy state of the SPI PHY can be used as IRQ source if no FIFO is implemented
-            ctrl(ctrl_irq1_c downto ctrl_irq0_c) <= "00";
+        -- write access --
+        if (wren = '1') then
+          if (addr = spi_ctrl_addr_c) then -- control register
+            ctrl(ctrl_cs7_c downto ctrl_cs0_c)     <= data_i(ctrl_cs7_c downto ctrl_cs0_c);
+            ctrl(ctrl_en_c)                        <= data_i(ctrl_en_c);
+            ctrl(ctrl_cpha_c)                      <= data_i(ctrl_cpha_c);
+            ctrl(ctrl_prsc2_c downto ctrl_prsc0_c) <= data_i(ctrl_prsc2_c downto ctrl_prsc0_c);
+            ctrl(ctrl_size1_c downto ctrl_size0_c) <= data_i(ctrl_size1_c downto ctrl_size0_c);
+            ctrl(ctrl_cpol_c)                      <= data_i(ctrl_cpol_c);
+            ctrl(ctrl_highspeed_c)                 <= data_i(ctrl_highspeed_c);
+            if (IO_SPI_FIFO > 0) then -- FIFO implemented: all IRQ options available
+              ctrl(ctrl_irq1_c downto ctrl_irq0_c) <= data_i(ctrl_irq1_c downto ctrl_irq0_c);
+            else -- fall back: only the busy state of the SPI PHY can be used as IRQ source if no FIFO is implemented
+              ctrl(ctrl_irq1_c downto ctrl_irq0_c) <= "00";
+            end if;
           end if;
         end if;
-      end if;
 
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        if (addr = spi_ctrl_addr_c) then -- control register
-          data_o(ctrl_cs7_c downto ctrl_cs0_c)     <= ctrl(ctrl_cs7_c downto ctrl_cs0_c);
-          data_o(ctrl_en_c)                        <= ctrl(ctrl_en_c);
-          data_o(ctrl_cpha_c)                      <= ctrl(ctrl_cpha_c);
-          data_o(ctrl_prsc2_c downto ctrl_prsc0_c) <= ctrl(ctrl_prsc2_c downto ctrl_prsc0_c);
-          data_o(ctrl_size1_c downto ctrl_size0_c) <= ctrl(ctrl_size1_c downto ctrl_size0_c);
-          data_o(ctrl_cpol_c)                      <= ctrl(ctrl_cpol_c);
-          data_o(ctrl_highspeed_c)                 <= ctrl(ctrl_highspeed_c);
-          data_o(ctrl_irq1_c downto ctrl_irq0_c)   <= ctrl(ctrl_irq1_c downto ctrl_irq0_c);
-          --
-          data_o(ctrl_fifo_size3_c downto ctrl_fifo_size0_c) <= std_ulogic_vector(to_unsigned(index_size_f(IO_SPI_FIFO), 4));
-          --
-          if (IO_SPI_FIFO > 0) then
-            data_o(ctrl_rx_avail_c) <= rx_fifo.avail;
-            data_o(ctrl_tx_empty_c) <= not tx_fifo.avail;
-            data_o(ctrl_tx_half_c)  <= tx_fifo.half;
-            data_o(ctrl_tx_full_c)  <= not tx_fifo.free;
-            data_o(ctrl_busy_c)     <= rtx_engine.busy or tx_fifo.avail; -- PHY busy or TX FIFO not empty yet
-          else
-            data_o(ctrl_rx_avail_c) <= '0';
-            data_o(ctrl_tx_empty_c) <= '0';
-            data_o(ctrl_tx_half_c)  <= '0';
-            data_o(ctrl_tx_full_c)  <= '0';
-            data_o(ctrl_busy_c)     <= rtx_engine.busy;
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          if (addr = spi_ctrl_addr_c) then -- control register
+            data_o(ctrl_cs7_c downto ctrl_cs0_c)     <= ctrl(ctrl_cs7_c downto ctrl_cs0_c);
+            data_o(ctrl_en_c)                        <= ctrl(ctrl_en_c);
+            data_o(ctrl_cpha_c)                      <= ctrl(ctrl_cpha_c);
+            data_o(ctrl_prsc2_c downto ctrl_prsc0_c) <= ctrl(ctrl_prsc2_c downto ctrl_prsc0_c);
+            data_o(ctrl_size1_c downto ctrl_size0_c) <= ctrl(ctrl_size1_c downto ctrl_size0_c);
+            data_o(ctrl_cpol_c)                      <= ctrl(ctrl_cpol_c);
+            data_o(ctrl_highspeed_c)                 <= ctrl(ctrl_highspeed_c);
+            data_o(ctrl_irq1_c downto ctrl_irq0_c)   <= ctrl(ctrl_irq1_c downto ctrl_irq0_c);
+            --
+            data_o(ctrl_fifo_size3_c downto ctrl_fifo_size0_c) <= std_ulogic_vector(to_unsigned(index_size_f(IO_SPI_FIFO), 4));
+            --
+            if (IO_SPI_FIFO > 0) then
+              data_o(ctrl_rx_avail_c) <= rx_fifo.avail;
+              data_o(ctrl_tx_empty_c) <= not tx_fifo.avail;
+              data_o(ctrl_tx_half_c)  <= tx_fifo.half;
+              data_o(ctrl_tx_full_c)  <= not tx_fifo.free;
+              data_o(ctrl_busy_c)     <= rtx_engine.busy or tx_fifo.avail; -- PHY busy or TX FIFO not empty yet
+            else
+              data_o(ctrl_rx_avail_c) <= '0';
+              data_o(ctrl_tx_empty_c) <= '0';
+              data_o(ctrl_tx_half_c)  <= '0';
+              data_o(ctrl_tx_full_c)  <= '0';
+              data_o(ctrl_busy_c)     <= rtx_engine.busy;
+            end if;
+          else -- data register (spi_rtx_addr_c)
+            data_o <= rx_fifo.rdata;
           end if;
-        else -- data register (spi_rtx_addr_c)
-          data_o <= rx_fifo.rdata;
         end if;
       end if;
     end if;
@@ -416,7 +418,7 @@ begin
     end case;
   end process data_size;
 
-  -- direct chip-select; low-active --  
+  -- direct chip-select; low-active --
   spi_csn_o(7 downto 0) <= not ctrl(ctrl_cs7_c downto ctrl_cs0_c);
 
 

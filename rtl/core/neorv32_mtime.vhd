@@ -102,57 +102,59 @@ begin
 
   -- Write Access ---------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  wr_access: process(rstn_i, clk_i)
+  wr_access: process(, clk_i)
   begin
-    if (rstn_i = '0') then
-      ack_o         <= '-';
-      mtimecmp_lo   <= (others => '1'); -- all-one to prevent accidental interrupt after reset
-      mtimecmp_hi   <= (others => '1');
-      mtime_lo_we   <= '0';
-      mtime_hi_we   <= '0';
-      mtime_lo      <= (others => '0');
-      mtime_lo_ovfl <= (others => '0');
-      mtime_hi      <= (others => '0');
-    elsif rising_edge(clk_i) then
-      -- bus handshake --
-      ack_o <= rden or wren;
-
-      -- mtimecmp --
-      if (wren = '1') then
-        if (addr = mtime_cmp_lo_addr_c) then
-          mtimecmp_lo <= data_i;
-        end if;
-        if (addr = mtime_cmp_hi_addr_c) then
-          mtimecmp_hi <= data_i;
-        end if;
-      end if;
-
-      -- mtime write access buffer --
-      if (wren = '1') and (addr = mtime_time_lo_addr_c) then
-        mtime_lo_we <= '1';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ack_o         <= '-';
+        mtimecmp_lo   <= (others => '1'); -- all-one to prevent accidental interrupt after reset
+        mtimecmp_hi   <= (others => '1');
+        mtime_lo_we   <= '0';
+        mtime_hi_we   <= '0';
+        mtime_lo      <= (others => '0');
+        mtime_lo_ovfl <= (others => '0');
+        mtime_hi      <= (others => '0');
       else
-        mtime_lo_we <= '0';
-      end if;
-      --
-      if (wren = '1') and (addr = mtime_time_hi_addr_c) then
-        mtime_hi_we <= '1';
-      else
-        mtime_hi_we <= '0';
-      end if;
+        -- bus handshake --
+        ack_o <= rden or wren;
 
-      -- mtime low --
-      if (mtime_lo_we = '1') then -- write access
-        mtime_lo <= data_i;
-      else -- auto increment
-        mtime_lo <= mtime_lo_nxt(31 downto 0);
-      end if;
-      mtime_lo_ovfl(0) <= mtime_lo_nxt(32); -- overflow (carry)
+        -- mtimecmp --
+        if (wren = '1') then
+          if (addr = mtime_cmp_lo_addr_c) then
+            mtimecmp_lo <= data_i;
+          end if;
+          if (addr = mtime_cmp_hi_addr_c) then
+            mtimecmp_hi <= data_i;
+          end if;
+        end if;
 
-      -- mtime high --
-      if (mtime_hi_we = '1') then -- write access
-        mtime_hi <= data_i;
-      else -- auto increment (if mtime.low overflows)
-        mtime_hi <= std_ulogic_vector(unsigned(mtime_hi) + unsigned(mtime_lo_ovfl));
+        -- mtime write access buffer --
+        if (wren = '1') and (addr = mtime_time_lo_addr_c) then
+          mtime_lo_we <= '1';
+        else
+          mtime_lo_we <= '0';
+        end if;
+        --
+        if (wren = '1') and (addr = mtime_time_hi_addr_c) then
+          mtime_hi_we <= '1';
+        else
+          mtime_hi_we <= '0';
+        end if;
+
+        -- mtime low --
+        if (mtime_lo_we = '1') then -- write access
+          mtime_lo <= data_i;
+        else -- auto increment
+          mtime_lo <= mtime_lo_nxt(31 downto 0);
+        end if;
+        mtime_lo_ovfl(0) <= mtime_lo_nxt(32); -- overflow (carry)
+
+        -- mtime high --
+        if (mtime_hi_we = '1') then -- write access
+          mtime_hi <= data_i;
+        else -- auto increment (if mtime.low overflows)
+          mtime_hi <= std_ulogic_vector(unsigned(mtime_hi) + unsigned(mtime_lo_ovfl));
+        end if;
       end if;
     end if;
   end process wr_access;

@@ -257,59 +257,61 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ctrl   <= (others => '0');
-      ack_o  <= '-';
-      data_o <= (others => '0');
-    elsif rising_edge(clk_i) then
-      -- bus access acknowledge --
-      ack_o <= wren or rden;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ctrl   <= (others => '0');
+        ack_o  <= '-';
+        data_o <= (others => '0');
+      else
+        -- bus access acknowledge --
+        ack_o <= wren or rden;
 
-      -- write access --
-      if (wren = '1') then
-        if (addr = uart_id_ctrl_addr_c) then
-          ctrl <= (others => '0');
-          ctrl(ctrl_baud11_c downto ctrl_baud00_c) <= data_i(ctrl_baud11_c downto ctrl_baud00_c);
-          ctrl(ctrl_sim_en_c)                      <= data_i(ctrl_sim_en_c);
-          ctrl(ctrl_pmode1_c downto ctrl_pmode0_c) <= data_i(ctrl_pmode1_c downto ctrl_pmode0_c);
-          ctrl(ctrl_prsc2_c  downto ctrl_prsc0_c)  <= data_i(ctrl_prsc2_c  downto ctrl_prsc0_c);
-          ctrl(ctrl_rts_en_c)                      <= data_i(ctrl_rts_en_c);
-          ctrl(ctrl_cts_en_c)                      <= data_i(ctrl_cts_en_c);
-          ctrl(ctrl_rx_irq_c)                      <= data_i(ctrl_rx_irq_c);
-          ctrl(ctrl_tx_irq_c)                      <= data_i(ctrl_tx_irq_c);
-          ctrl(ctrl_en_c)                          <= data_i(ctrl_en_c);
+        -- write access --
+        if (wren = '1') then
+          if (addr = uart_id_ctrl_addr_c) then
+            ctrl <= (others => '0');
+            ctrl(ctrl_baud11_c downto ctrl_baud00_c) <= data_i(ctrl_baud11_c downto ctrl_baud00_c);
+            ctrl(ctrl_sim_en_c)                      <= data_i(ctrl_sim_en_c);
+            ctrl(ctrl_pmode1_c downto ctrl_pmode0_c) <= data_i(ctrl_pmode1_c downto ctrl_pmode0_c);
+            ctrl(ctrl_prsc2_c  downto ctrl_prsc0_c)  <= data_i(ctrl_prsc2_c  downto ctrl_prsc0_c);
+            ctrl(ctrl_rts_en_c)                      <= data_i(ctrl_rts_en_c);
+            ctrl(ctrl_cts_en_c)                      <= data_i(ctrl_cts_en_c);
+            ctrl(ctrl_rx_irq_c)                      <= data_i(ctrl_rx_irq_c);
+            ctrl(ctrl_tx_irq_c)                      <= data_i(ctrl_tx_irq_c);
+            ctrl(ctrl_en_c)                          <= data_i(ctrl_en_c);
+          end if;
         end if;
-      end if;
 
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        if (addr = uart_id_ctrl_addr_c) then
-          data_o(ctrl_baud11_c downto ctrl_baud00_c) <= ctrl(ctrl_baud11_c downto ctrl_baud00_c);
-          data_o(ctrl_sim_en_c)                      <= ctrl(ctrl_sim_en_c);
-          data_o(ctrl_pmode1_c downto ctrl_pmode0_c) <= ctrl(ctrl_pmode1_c downto ctrl_pmode0_c);
-          data_o(ctrl_prsc2_c  downto ctrl_prsc0_c)  <= ctrl(ctrl_prsc2_c  downto ctrl_prsc0_c);
-          data_o(ctrl_rts_en_c)                      <= ctrl(ctrl_rts_en_c);
-          data_o(ctrl_cts_en_c)                      <= ctrl(ctrl_cts_en_c);
-          data_o(ctrl_rx_empty_c)                    <= not rx_buffer.avail;
-          data_o(ctrl_rx_half_c)                     <= rx_buffer.half;
-          data_o(ctrl_rx_full_c)                     <= not rx_buffer.free;
-          data_o(ctrl_tx_empty_c)                    <= not tx_buffer.avail;
-          data_o(ctrl_tx_half_c)                     <= tx_buffer.half;
-          data_o(ctrl_tx_full_c)                     <= not tx_buffer.free;
-          data_o(ctrl_en_c)                          <= ctrl(ctrl_en_c);
-          data_o(ctrl_rx_irq_c)                      <= ctrl(ctrl_rx_irq_c) and bool_to_ulogic_f(boolean(UART_RX_FIFO > 1)); -- tie to zero if UART_RX_FIFO = 1
-          data_o(ctrl_tx_irq_c)                      <= ctrl(ctrl_tx_irq_c) and bool_to_ulogic_f(boolean(UART_TX_FIFO > 1)); -- tie to zero if UART_TX_FIFO = 1
-          data_o(ctrl_tx_busy_c)                     <= tx_engine.busy;
-          data_o(ctrl_cts_c)                         <= uart_cts_ff(1);
-        else -- uart_id_rtx_addr_c
-          data_o(data_msb_c downto data_lsb_c) <= rx_buffer.rdata(7 downto 0);
-          data_o(data_rx_perr_c)               <= rx_buffer.rdata(8);
-          data_o(data_rx_ferr_c)               <= rx_buffer.rdata(9);
-          data_o(data_rx_overr_c)              <= rx_engine.overr;
-          data_o(data_rx_avail_c)              <= rx_buffer.avail; -- data available (valid?)
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          if (addr = uart_id_ctrl_addr_c) then
+            data_o(ctrl_baud11_c downto ctrl_baud00_c) <= ctrl(ctrl_baud11_c downto ctrl_baud00_c);
+            data_o(ctrl_sim_en_c)                      <= ctrl(ctrl_sim_en_c);
+            data_o(ctrl_pmode1_c downto ctrl_pmode0_c) <= ctrl(ctrl_pmode1_c downto ctrl_pmode0_c);
+            data_o(ctrl_prsc2_c  downto ctrl_prsc0_c)  <= ctrl(ctrl_prsc2_c  downto ctrl_prsc0_c);
+            data_o(ctrl_rts_en_c)                      <= ctrl(ctrl_rts_en_c);
+            data_o(ctrl_cts_en_c)                      <= ctrl(ctrl_cts_en_c);
+            data_o(ctrl_rx_empty_c)                    <= not rx_buffer.avail;
+            data_o(ctrl_rx_half_c)                     <= rx_buffer.half;
+            data_o(ctrl_rx_full_c)                     <= not rx_buffer.free;
+            data_o(ctrl_tx_empty_c)                    <= not tx_buffer.avail;
+            data_o(ctrl_tx_half_c)                     <= tx_buffer.half;
+            data_o(ctrl_tx_full_c)                     <= not tx_buffer.free;
+            data_o(ctrl_en_c)                          <= ctrl(ctrl_en_c);
+            data_o(ctrl_rx_irq_c)                      <= ctrl(ctrl_rx_irq_c) and bool_to_ulogic_f(boolean(UART_RX_FIFO > 1)); -- tie to zero if UART_RX_FIFO = 1
+            data_o(ctrl_tx_irq_c)                      <= ctrl(ctrl_tx_irq_c) and bool_to_ulogic_f(boolean(UART_TX_FIFO > 1)); -- tie to zero if UART_TX_FIFO = 1
+            data_o(ctrl_tx_busy_c)                     <= tx_engine.busy;
+            data_o(ctrl_cts_c)                         <= uart_cts_ff(1);
+          else -- uart_id_rtx_addr_c
+            data_o(data_msb_c downto data_lsb_c) <= rx_buffer.rdata(7 downto 0);
+            data_o(data_rx_perr_c)               <= rx_buffer.rdata(8);
+            data_o(data_rx_ferr_c)               <= rx_buffer.rdata(9);
+            data_o(data_rx_overr_c)              <= rx_engine.overr;
+            data_o(data_rx_avail_c)              <= rx_buffer.avail; -- data available (valid?)
+          end if;
         end if;
       end if;
     end if;
@@ -607,7 +609,7 @@ begin
     begin
       if rising_edge(clk_i) then
         if (tx_engine.state = S_TX_SIM) then -- UART simulation mode
-          
+
           -- print lowest byte as ASCII char --
           char_v := to_integer(unsigned(tx_buffer.rdata(7 downto 0)));
           if (char_v >= 128) then -- out of range?

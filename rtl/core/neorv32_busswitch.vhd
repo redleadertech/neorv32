@@ -50,7 +50,7 @@ entity neorv32_busswitch is
   port (
     -- global control --
     clk_i           : in  std_ulogic; -- global clock, rising edge
-    rstn_i          : in  std_ulogic; -- global reset, low-active, async
+    rstn_i          : in  std_ulogic; -- global reset, low-active, sync
     -- controller interface a --
     ca_bus_priv_i   : in  std_ulogic; -- current privilege level
     ca_bus_cached_i : in  std_ulogic; -- set if cached transfer
@@ -116,23 +116,25 @@ begin
 
   -- Access Arbiter -------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  arbiter_sync: process(rstn_i, clk_i)
+  arbiter_sync: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      arbiter.state <= IDLE;
-      ca_rd_req_buf <= '0';
-      ca_wr_req_buf <= '0';
-      cb_rd_req_buf <= '0';
-      cb_wr_req_buf <= '0';
-    elsif rising_edge(clk_i) then
-      -- arbiter --
-      arbiter.state <= arbiter.state_nxt;
-      -- controller A requests --
-      ca_rd_req_buf <= (ca_rd_req_buf or ca_bus_re_i) and (not (ca_bus_err or ca_bus_ack));
-      ca_wr_req_buf <= (ca_wr_req_buf or ca_bus_we_i) and (not (ca_bus_err or ca_bus_ack)) and (not bool_to_ulogic_f(PORT_CA_READ_ONLY));
-      -- controller B requests --
-      cb_rd_req_buf <= (cb_rd_req_buf or cb_bus_re_i) and (not (cb_bus_err or cb_bus_ack));
-      cb_wr_req_buf <= (cb_wr_req_buf or cb_bus_we_i) and (not (cb_bus_err or cb_bus_ack)) and (not bool_to_ulogic_f(PORT_CB_READ_ONLY));
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        arbiter.state <= IDLE;
+        ca_rd_req_buf <= '0';
+        ca_wr_req_buf <= '0';
+        cb_rd_req_buf <= '0';
+        cb_wr_req_buf <= '0';
+      else
+        -- arbiter --
+        arbiter.state <= arbiter.state_nxt;
+        -- controller A requests --
+        ca_rd_req_buf <= (ca_rd_req_buf or ca_bus_re_i) and (not (ca_bus_err or ca_bus_ack));
+        ca_wr_req_buf <= (ca_wr_req_buf or ca_bus_we_i) and (not (ca_bus_err or ca_bus_ack)) and (not bool_to_ulogic_f(PORT_CA_READ_ONLY));
+        -- controller B requests --
+        cb_rd_req_buf <= (cb_rd_req_buf or cb_bus_re_i) and (not (cb_bus_err or cb_bus_ack));
+        cb_wr_req_buf <= (cb_wr_req_buf or cb_bus_we_i) and (not (cb_bus_err or cb_bus_ack)) and (not bool_to_ulogic_f(PORT_CB_READ_ONLY));
+      end if;
     end if;
   end process arbiter_sync;
 

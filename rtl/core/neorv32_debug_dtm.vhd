@@ -160,35 +160,37 @@ begin
 
   -- Tap Control FSM ------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  tap_control: process(rstn_i, clk_i)
+  tap_control: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      tap_ctrl.state      <= LOGIC_RESET;
-      tap_ctrl.state_prev <= LOGIC_RESET;
-    elsif rising_edge(clk_i) then
-      tap_ctrl.state_prev <= tap_ctrl.state;
-      if (tap_sync.trst = '0') then -- reset
-        tap_ctrl.state <= LOGIC_RESET;
-      elsif (tap_sync.tck_rising = '1') then -- clock pulse (evaluate TMS on the rising edge of TCK)
-        case tap_ctrl.state is -- JTAG state machine
-          when LOGIC_RESET => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= LOGIC_RESET; end if;
-          when RUN_IDLE    => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= DR_SCAN;     end if;
-          when DR_SCAN     => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_CAPTURE; else tap_ctrl.state <= IR_SCAN;     end if;
-          when DR_CAPTURE  => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_SHIFT;   else tap_ctrl.state <= DR_EXIT1;    end if;
-          when DR_SHIFT    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_SHIFT;   else tap_ctrl.state <= DR_EXIT1;    end if;
-          when DR_EXIT1    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_PAUSE;   else tap_ctrl.state <= DR_UPDATE;   end if;
-          when DR_PAUSE    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_PAUSE;   else tap_ctrl.state <= DR_EXIT2;    end if;
-          when DR_EXIT2    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_SHIFT;   else tap_ctrl.state <= DR_UPDATE;   end if;
-          when DR_UPDATE   => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= DR_SCAN;     end if;
-          when IR_SCAN     => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_CAPTURE; else tap_ctrl.state <= LOGIC_RESET; end if;
-          when IR_CAPTURE  => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_SHIFT;   else tap_ctrl.state <= IR_EXIT1;    end if;
-          when IR_SHIFT    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_SHIFT;   else tap_ctrl.state <= IR_EXIT1;    end if;
-          when IR_EXIT1    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_PAUSE;   else tap_ctrl.state <= IR_UPDATE;   end if;
-          when IR_PAUSE    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_PAUSE;   else tap_ctrl.state <= IR_EXIT2;    end if;
-          when IR_EXIT2    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_SHIFT;   else tap_ctrl.state <= IR_UPDATE;   end if;
-          when IR_UPDATE   => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= DR_SCAN;     end if;
-          when others      => tap_ctrl.state <= LOGIC_RESET;
-        end case;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        tap_ctrl.state      <= LOGIC_RESET;
+        tap_ctrl.state_prev <= LOGIC_RESET;
+      else
+        tap_ctrl.state_prev <= tap_ctrl.state;
+        if (tap_sync.trst = '0') then -- reset
+          tap_ctrl.state <= LOGIC_RESET;
+        elsif (tap_sync.tck_rising = '1') then -- clock pulse (evaluate TMS on the rising edge of TCK)
+          case tap_ctrl.state is -- JTAG state machine
+            when LOGIC_RESET => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= LOGIC_RESET; end if;
+            when RUN_IDLE    => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= DR_SCAN;     end if;
+            when DR_SCAN     => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_CAPTURE; else tap_ctrl.state <= IR_SCAN;     end if;
+            when DR_CAPTURE  => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_SHIFT;   else tap_ctrl.state <= DR_EXIT1;    end if;
+            when DR_SHIFT    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_SHIFT;   else tap_ctrl.state <= DR_EXIT1;    end if;
+            when DR_EXIT1    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_PAUSE;   else tap_ctrl.state <= DR_UPDATE;   end if;
+            when DR_PAUSE    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_PAUSE;   else tap_ctrl.state <= DR_EXIT2;    end if;
+            when DR_EXIT2    => if (tap_sync.tms = '0') then tap_ctrl.state <= DR_SHIFT;   else tap_ctrl.state <= DR_UPDATE;   end if;
+            when DR_UPDATE   => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= DR_SCAN;     end if;
+            when IR_SCAN     => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_CAPTURE; else tap_ctrl.state <= LOGIC_RESET; end if;
+            when IR_CAPTURE  => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_SHIFT;   else tap_ctrl.state <= IR_EXIT1;    end if;
+            when IR_SHIFT    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_SHIFT;   else tap_ctrl.state <= IR_EXIT1;    end if;
+            when IR_EXIT1    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_PAUSE;   else tap_ctrl.state <= IR_UPDATE;   end if;
+            when IR_PAUSE    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_PAUSE;   else tap_ctrl.state <= IR_EXIT2;    end if;
+            when IR_EXIT2    => if (tap_sync.tms = '0') then tap_ctrl.state <= IR_SHIFT;   else tap_ctrl.state <= IR_UPDATE;   end if;
+            when IR_UPDATE   => if (tap_sync.tms = '0') then tap_ctrl.state <= RUN_IDLE;   else tap_ctrl.state <= DR_SCAN;     end if;
+            when others      => tap_ctrl.state <= LOGIC_RESET;
+          end case;
+        end if;
       end if;
     end if;
   end process tap_control;
@@ -244,83 +246,84 @@ begin
 
   -- Debug Module Interface -----------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  dmi_controller: process(rstn_i, clk_i)
+  dmi_controller: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      dmi_ctrl.state        <= DMI_IDLE;
-      dmi_ctrl.dmihardreset <= '1';
-      dmi_ctrl.dmireset     <= '1';
-      dmi_ctrl.err          <= '0';
-      dmi_ctrl.rdata        <= (others => '0');
-      dmi_ctrl.wdata        <= (others => '0');
-      dmi_ctrl.addr         <= (others => '0');
-    elsif rising_edge(clk_i) then
-
-      -- DMI status and control --
-      dmi_ctrl.dmihardreset <= '0'; -- default
-      dmi_ctrl.dmireset     <= '0'; -- default
-      if (tap_ctrl.state = DR_UPDATE) and (tap_ctrl.state_prev /= DR_UPDATE) and (tap_reg.ireg = "10000") then
-        dmi_ctrl.dmireset     <= tap_reg.dtmcs(16);
-        dmi_ctrl.dmihardreset <= tap_reg.dtmcs(17);
-      end if;
-
-      -- DMI interface arbiter --
-      if (dmi_ctrl.dmihardreset = '1') then -- DMI hard reset
-        dmi_ctrl.state <= DMI_IDLE;
-        dmi_ctrl.err   <= '0';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        dmi_ctrl.state        <= DMI_IDLE;
+        dmi_ctrl.dmihardreset <= '1';
+        dmi_ctrl.dmireset     <= '1';
+        dmi_ctrl.err          <= '0';
+        dmi_ctrl.rdata        <= (others => '0');
+        dmi_ctrl.wdata        <= (others => '0');
+        dmi_ctrl.addr         <= (others => '0');
       else
-        case dmi_ctrl.state is
+        -- DMI status and control --
+        dmi_ctrl.dmihardreset <= '0'; -- default
+        dmi_ctrl.dmireset     <= '0'; -- default
+        if (tap_ctrl.state = DR_UPDATE) and (tap_ctrl.state_prev /= DR_UPDATE) and (tap_reg.ireg = "10000") then
+          dmi_ctrl.dmireset     <= tap_reg.dtmcs(16);
+          dmi_ctrl.dmihardreset <= tap_reg.dtmcs(17);
+        end if;
 
-          when DMI_IDLE => -- waiting for new request
-            if (tap_ctrl.state = DR_UPDATE) and (tap_ctrl.state_prev /= DR_UPDATE) and (tap_reg.ireg = "10001") then -- update <dmi>
-              if (tap_reg.dmi(1 downto 0) = "01") then -- read
-                dmi_ctrl.state <= DMI_READ_WAIT;
-              elsif (tap_reg.dmi(1 downto 0) = "10") then -- write
-                dmi_ctrl.state <= DMI_WRITE_WAIT;
+        -- DMI interface arbiter --
+        if (dmi_ctrl.dmihardreset = '1') then -- DMI hard reset
+          dmi_ctrl.state <= DMI_IDLE;
+          dmi_ctrl.err   <= '0';
+        else
+          case dmi_ctrl.state is
+
+            when DMI_IDLE => -- waiting for new request
+              if (tap_ctrl.state = DR_UPDATE) and (tap_ctrl.state_prev /= DR_UPDATE) and (tap_reg.ireg = "10001") then -- update <dmi>
+                if (tap_reg.dmi(1 downto 0) = "01") then -- read
+                  dmi_ctrl.state <= DMI_READ_WAIT;
+                elsif (tap_reg.dmi(1 downto 0) = "10") then -- write
+                  dmi_ctrl.state <= DMI_WRITE_WAIT;
+                end if;
+                dmi_ctrl.addr  <= tap_reg.dmi(40 downto 34);
+                dmi_ctrl.wdata <= tap_reg.dmi(33 downto 02);
               end if;
-              dmi_ctrl.addr  <= tap_reg.dmi(40 downto 34);
-              dmi_ctrl.wdata <= tap_reg.dmi(33 downto 02);
-            end if;
 
 
-          when DMI_READ_WAIT => -- wait for DMI to become ready
-            if (dmi_req_ready_i = '1') then
-              dmi_ctrl.state <= DMI_READ;
-            end if;
+            when DMI_READ_WAIT => -- wait for DMI to become ready
+              if (dmi_req_ready_i = '1') then
+                dmi_ctrl.state <= DMI_READ;
+              end if;
 
-          when DMI_READ => -- start read access
-            dmi_ctrl.state <= DMI_READ_BUSY;
+            when DMI_READ => -- start read access
+              dmi_ctrl.state <= DMI_READ_BUSY;
 
-          when DMI_READ_BUSY => -- pending read access
-            if (dmi_resp_valid_i = '1') then
-              dmi_ctrl.rdata <= dmi_resp_data_i;
-              dmi_ctrl.err   <= dmi_ctrl.err or dmi_resp_err_i; -- sticky error
+            when DMI_READ_BUSY => -- pending read access
+              if (dmi_resp_valid_i = '1') then
+                dmi_ctrl.rdata <= dmi_resp_data_i;
+                dmi_ctrl.err   <= dmi_ctrl.err or dmi_resp_err_i; -- sticky error
+                dmi_ctrl.state <= DMI_IDLE;
+              end if;
+
+
+            when DMI_WRITE_WAIT => -- wait for DMI to become ready
+              if (dmi_req_ready_i = '1') then
+                dmi_ctrl.state <= DMI_WRITE;
+              end if;
+
+            when DMI_WRITE => -- start write access
+              dmi_ctrl.state <= DMI_WRITE_BUSY;
+
+            when DMI_WRITE_BUSY => -- pending write access
+              if (dmi_resp_valid_i = '1') then
+                dmi_ctrl.err   <= dmi_ctrl.err or dmi_resp_err_i; -- sticky error
+                dmi_ctrl.state <= DMI_IDLE;
+              end if;
+
+
+            when others => -- undefined
               dmi_ctrl.state <= DMI_IDLE;
-            end if;
 
-
-          when DMI_WRITE_WAIT => -- wait for DMI to become ready
-            if (dmi_req_ready_i = '1') then
-              dmi_ctrl.state <= DMI_WRITE;
-            end if;
-
-          when DMI_WRITE => -- start write access
-            dmi_ctrl.state <= DMI_WRITE_BUSY;
-
-          when DMI_WRITE_BUSY => -- pending write access
-            if (dmi_resp_valid_i = '1') then
-              dmi_ctrl.err   <= dmi_ctrl.err or dmi_resp_err_i; -- sticky error
-              dmi_ctrl.state <= DMI_IDLE;
-            end if;
-
-
-          when others => -- undefined
-            dmi_ctrl.state <= DMI_IDLE;
-
-        end case;
-        -- clear sticky error flag --
-        if (dmi_ctrl.dmireset = '1') then
-          dmi_ctrl.err <= '0';
+          end case;
+          -- clear sticky error flag --
+          if (dmi_ctrl.dmireset = '1') then
+            dmi_ctrl.err <= '0';
+          end if;
         end if;
       end if;
     end if;

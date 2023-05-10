@@ -118,39 +118,41 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      clr_pending <= (others => '0'); -- clear all pending interrupts
-      irq_enable  <= (others => '0');
-      ack_o       <= '-';
-      data_o      <= (others => '-');
-    elsif rising_edge(clk_i) then
-      -- bus handshake --
-      ack_o <= rden or wren;
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        clr_pending <= (others => '0'); -- clear all pending interrupts
+        irq_enable  <= (others => '0');
+        ack_o       <= '-';
+        data_o      <= (others => '-');
+      else
+        -- bus handshake --
+        ack_o <= rden or wren;
 
-      -- write access --
-      clr_pending <= (others => '1');
-      if (wren = '1') then
-        -- channel-enable --
-        if (addr = xirq_enable_addr_c) then
-          irq_enable <= data_i(XIRQ_NUM_CH-1 downto 0);
+        -- write access --
+        clr_pending <= (others => '1');
+        if (wren = '1') then
+          -- channel-enable --
+          if (addr = xirq_enable_addr_c) then
+            irq_enable <= data_i(XIRQ_NUM_CH-1 downto 0);
+          end if;
+          -- clear pending IRQs --
+          if (addr = xirq_pending_addr_c) then
+            clr_pending <= data_i(XIRQ_NUM_CH-1 downto 0); -- set zero to clear pending IRQ
+          end if;
         end if;
-        -- clear pending IRQs --
-        if (addr = xirq_pending_addr_c) then
-          clr_pending <= data_i(XIRQ_NUM_CH-1 downto 0); -- set zero to clear pending IRQ
-        end if;
-      end if;
 
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr is
-          when xirq_enable_addr_c  => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_enable; -- channel-enable
-          when xirq_pending_addr_c => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_buf; -- pending IRQs
-          when xirq_source_addr_c  => data_o(4 downto 0) <= irq_src; -- source IRQ
-          when others => NULL;
-        end case;
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          case addr is
+            when xirq_enable_addr_c  => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_enable; -- channel-enable
+            when xirq_pending_addr_c => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_buf; -- pending IRQs
+            when xirq_source_addr_c  => data_o(4 downto 0) <= irq_src; -- source IRQ
+            when others => NULL;
+          end case;
+        end if;
       end if;
     end if;
   end process rw_access;
@@ -213,23 +215,25 @@ begin
 
   -- IRQ Arbiter --------------------------------------------------------------
   -- -----------------------------------------------------------------------------
-  irq_arbiter: process(rstn_i, clk_i)
+  irq_arbiter: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      cpu_irq_o <= '0';
-      irq_run   <= '0';
-      irq_src   <= (others => '0');
-    elsif rising_edge(clk_i) then
-      cpu_irq_o <= '0';
-      if (irq_run = '0') then -- no active IRQ
-        if (irq_fire = '1') then
-          cpu_irq_o <= '1';
-          irq_run   <= '1';
-          irq_src   <= irq_src_nxt; -- get IRQ source that has highest priority
-        end if;
-      else -- active IRQ, wait for CPU to acknowledge
-        if (wren = '1') and (addr = xirq_source_addr_c) then -- write *any* value to acknowledge
-          irq_run <= '0';
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        cpu_irq_o <= '0';
+        irq_run   <= '0';
+        irq_src   <= (others => '0');
+      else
+        cpu_irq_o <= '0';
+        if (irq_run = '0') then -- no active IRQ
+          if (irq_fire = '1') then
+            cpu_irq_o <= '1';
+            irq_run   <= '1';
+            irq_src   <= irq_src_nxt; -- get IRQ source that has highest priority
+          end if;
+        else -- active IRQ, wait for CPU to acknowledge
+          if (wren = '1') and (addr = xirq_source_addr_c) then -- write *any* value to acknowledge
+            irq_run <= '0';
+          end if;
         end if;
       end if;
     end if;

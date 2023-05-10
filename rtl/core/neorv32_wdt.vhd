@@ -142,32 +142,34 @@ begin
 
   -- Write Access ---------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  write_access: process(rstn_int_i, clk_i)
+  write_access: process(clk_i)
   begin
-    if (rstn_int_i = '0') then
-      ctrl.reset   <= '0';
-      ctrl.enforce <= '0';
-      ctrl.enable  <= '0'; -- disable WDT
-      ctrl.mode    <= '0';
-      ctrl.clk_sel <= (others => '0');
-      ctrl.lock    <= '0';
-      ctrl.dben    <= '0';
-      ctrl.pause   <= '0';
-    elsif rising_edge(clk_i) then
-      -- auto-clear reset and force flags --
-      ctrl.reset   <= '0';
-      ctrl.enforce <= '0';
-      -- write access - only if password is OK --
-      if (wren = '1') and (pwd_ok = '1') then
-        ctrl.reset   <= data_i(ctrl_reset_c);
-        ctrl.enforce <= data_i(ctrl_force_c);
-        if (ctrl.lock = '0') then -- update configuration only if not locked
-          ctrl.enable  <= data_i(ctrl_enable_c);
-          ctrl.mode    <= data_i(ctrl_mode_c);
-          ctrl.clk_sel <= data_i(ctrl_clksel2_c downto ctrl_clksel0_c);
-          ctrl.lock    <= data_i(ctrl_lock_c);
-          ctrl.dben    <= data_i(ctrl_dben_c);
-          ctrl.pause   <= data_i(ctrl_pause_c);
+    if rising_edge(clk_i) then
+      if (rstn_int_i = '0') then
+        ctrl.reset   <= '0';
+        ctrl.enforce <= '0';
+        ctrl.enable  <= '0'; -- disable WDT
+        ctrl.mode    <= '0';
+        ctrl.clk_sel <= (others => '0');
+        ctrl.lock    <= '0';
+        ctrl.dben    <= '0';
+        ctrl.pause   <= '0';
+      else
+        -- auto-clear reset and force flags --
+        ctrl.reset   <= '0';
+        ctrl.enforce <= '0';
+        -- write access - only if password is OK --
+        if (wren = '1') and (pwd_ok = '1') then
+          ctrl.reset   <= data_i(ctrl_reset_c);
+          ctrl.enforce <= data_i(ctrl_force_c);
+          if (ctrl.lock = '0') then -- update configuration only if not locked
+            ctrl.enable  <= data_i(ctrl_enable_c);
+            ctrl.mode    <= data_i(ctrl_mode_c);
+            ctrl.clk_sel <= data_i(ctrl_clksel2_c downto ctrl_clksel0_c);
+            ctrl.lock    <= data_i(ctrl_lock_c);
+            ctrl.dben    <= data_i(ctrl_dben_c);
+            ctrl.pause   <= data_i(ctrl_pause_c);
+          end if;
         end if;
       end if;
     end if;
@@ -183,20 +185,22 @@ begin
 
   -- Watchdog Timeout -----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  wdt_counter: process(rstn_int_i, clk_i)
+  wdt_counter: process(clk_i)
   begin
-    if (rstn_int_i = '0') then
-      cnt_en_ff <= '0';
-      wdt_cnt   <= (others => '0');
-      rstn_o    <= '1'; -- do NOT fire on reset!
-    elsif rising_edge(clk_i) then
-      cnt_en_ff <= cnt_en;
-      if (ctrl.reset = '1') then -- watchdog reset
-        wdt_cnt <= (others => '0');
-      elsif (cnt_en_ff = '1') then
-        wdt_cnt <= std_ulogic_vector(unsigned('0' & wdt_cnt(wdt_cnt'left-1 downto 0)) + 1);
+    if rising_edge(clk_i) then
+      if (rstn_int_i = '0') then
+        cnt_en_ff <= '0';
+        wdt_cnt   <= (others => '0');
+        rstn_o    <= '1'; -- do NOT fire on reset!
+      else
+        cnt_en_ff <= cnt_en;
+        if (ctrl.reset = '1') then -- watchdog reset
+          wdt_cnt <= (others => '0');
+        elsif (cnt_en_ff = '1') then
+          wdt_cnt <= std_ulogic_vector(unsigned('0' & wdt_cnt(wdt_cnt'left-1 downto 0)) + 1);
+        end if;
+        rstn_o <= not hw_rst;
       end if;
-      rstn_o <= not hw_rst;
     end if;
   end process wdt_counter;
 
@@ -213,12 +217,14 @@ begin
 
   -- Reset Cause Indicator ------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  reset_generator: process(rstn_ext_i, clk_i)
+  reset_generator: process(clk_i)
   begin
-    if (rstn_ext_i = '0') then
-      ctrl.rcause <= '0';
-    elsif rising_edge(clk_i) then
-      ctrl.rcause <= ctrl.rcause or hw_rst; -- sticky-set on WDT timeout/force
+    if rising_edge(clk_i) then
+      if (rstn_ext_i = '0') then
+        ctrl.rcause <= '0';
+      else
+        ctrl.rcause <= ctrl.rcause or hw_rst; -- sticky-set on WDT timeout/force
+      end if;
     end if;
   end process reset_generator;
 

@@ -475,34 +475,36 @@ begin
   -- -------------------------------------------------------------------------------------------
 
   -- access arbiter --
-  axi_access_arbiter: process(rstn_i_int, clk_i_int)
+  axi_access_arbiter: process(clk_i_int)
   begin
-    if (rstn_i_int = '0') then
-      ctrl.radr_received <= '0';
-      ctrl.wadr_received <= '0';
-      ctrl.wdat_received <= '0';
-    elsif rising_edge(clk_i_int) then
-      if (wb_core.cyc = '0') then -- idle
+    if rising_edge(clk_i_int) then
+      if (rstn_i_int = '0') then
         ctrl.radr_received <= '0';
         ctrl.wadr_received <= '0';
         ctrl.wdat_received <= '0';
-      else -- busy
-        -- "read address received" flag --
-        if (wb_core.we = '0') then -- pending READ
-          if (m_axi_arready = '1') then -- read address received by interconnect?
-            ctrl.radr_received <= '1';
+      else
+        if (wb_core.cyc = '0') then -- idle
+          ctrl.radr_received <= '0';
+          ctrl.wadr_received <= '0';
+          ctrl.wdat_received <= '0';
+        else -- busy
+          -- "read address received" flag --
+          if (wb_core.we = '0') then -- pending READ
+            if (m_axi_arready = '1') then -- read address received by interconnect?
+              ctrl.radr_received <= '1';
+            end if;
           end if;
-        end if;
-        -- "write address received" flag --
-        if (wb_core.we = '1') then -- pending WRITE
-          if (m_axi_awready = '1') then -- write address received by interconnect?
-            ctrl.wadr_received <= '1';
+          -- "write address received" flag --
+          if (wb_core.we = '1') then -- pending WRITE
+            if (m_axi_awready = '1') then -- write address received by interconnect?
+              ctrl.wadr_received <= '1';
+            end if;
           end if;
-        end if;
-        -- "write data received" flag --
-        if (wb_core.we = '1') then -- pending WRITE
-          if (m_axi_wready = '1') then -- write data received by interconnect?
-            ctrl.wdat_received <= '1';
+          -- "write data received" flag --
+          if (wb_core.we = '1') then -- pending WRITE
+            if (m_axi_wready = '1') then -- write data received by interconnect?
+              ctrl.wdat_received <= '1';
+            end if;
           end if;
         end if;
       end if;

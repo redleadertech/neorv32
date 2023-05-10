@@ -88,46 +88,47 @@ begin
 
   -- Read/Write Access ----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  rw_access: process(rstn_i, clk_i)
+  rw_access: process(clk_i)
   begin
-    if (rstn_i = '0') then
-      ack_o   <= '-';
-      err_o   <= '-';
-      dout_lo <= (others => '0');
-      dout_hi <= (others => '0');
-      din_lo  <= (others => '-');
-      din_hi  <= (others => '-');
-      data_o  <= (others => '-');
-    elsif rising_edge(clk_i) then
-      -- bus handshake --
-      ack_o <= (wren and addr(3)) or rden;
-      err_o <= wren and (not addr(3)); -- INPUT registers are read only!
+    if rising_edge(clk_i) then
+      if (rstn_i = '0') then
+        ack_o   <= '-';
+        err_o   <= '-';
+        dout_lo <= (others => '0');
+        dout_hi <= (others => '0');
+        din_lo  <= (others => '-');
+        din_hi  <= (others => '-');
+        data_o  <= (others => '-');
+      else
+        -- bus handshake --
+        ack_o <= (wren and addr(3)) or rden;
+        err_o <= wren and (not addr(3)); -- INPUT registers are read only!
 
-      -- write access --
-      if (wren = '1') then
-        if (addr = gpio_out_lo_addr_c) then
-          dout_lo <= data_i;
+        -- write access --
+        if (wren = '1') then
+          if (addr = gpio_out_lo_addr_c) then
+            dout_lo <= data_i;
+          end if;
+          if (addr = gpio_out_hi_addr_c) then
+            dout_hi <= data_i;
+          end if;
         end if;
-        if (addr = gpio_out_hi_addr_c) then
-          dout_hi <= data_i;
+
+        -- input buffer (prevent metastability) --
+        din_lo <= gpio_i(31 downto 00);
+        din_hi <= gpio_i(63 downto 32);
+
+        -- read access --
+        data_o <= (others => '0');
+        if (rden = '1') then
+          case addr(3 downto 2) is
+            when "00"   => data_o <= din_lo;
+            when "01"   => data_o <= din_hi;
+            when "10"   => data_o <= dout_lo;
+            when others => data_o <= dout_hi;
+          end case;
         end if;
       end if;
-
-      -- input buffer (prevent metastability) --
-      din_lo <= gpio_i(31 downto 00);
-      din_hi <= gpio_i(63 downto 32);
-
-      -- read access --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr(3 downto 2) is
-          when "00"   => data_o <= din_lo;
-          when "01"   => data_o <= din_hi;
-          when "10"   => data_o <= dout_lo;
-          when others => data_o <= dout_hi;
-        end case;
-      end if;
-
     end if;
   end process rw_access;
 
