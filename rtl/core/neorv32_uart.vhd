@@ -344,7 +344,7 @@ begin
   port map (
     -- control --
     clk_i   => clk_i,           -- clock, rising edge
-    rstn_i  => '1',             -- async reset, low-active
+    rstn_i  => rstn_i,          -- sync reset, low-active
     clear_i => tx_buffer.clear, -- sync reset, high-active
     half_o  => tx_buffer.half,  -- FIFO at least half-full
     -- write port --
@@ -519,7 +519,7 @@ begin
   port map (
     -- control --
     clk_i   => clk_i,           -- clock, rising edge
-    rstn_i  => '1',             -- async reset, low-active
+    rstn_i  => rstn_i,          -- sync reset, low-active
     clear_i => rx_buffer.clear, -- sync reset, high-active
     half_o  => rx_buffer.half,  -- FIFO at least half-full
     -- write port --

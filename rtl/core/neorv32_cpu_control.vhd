@@ -491,7 +491,7 @@ begin
     port map (
       -- control --
       clk_i   => clk_i,                -- clock, rising edge
-      rstn_i  => '1',                  -- async reset, low-active
+      rstn_i  => rstn_i,               -- sync reset, low-active
       clear_i => fetch_engine.restart, -- sync reset, high-active
       half_o  => open,                 -- at least half full
       -- write port --
